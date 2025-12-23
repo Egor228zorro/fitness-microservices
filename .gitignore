@@ -1,0 +1,33 @@
+# PHP
+vendor/
+composer.lock
+.php-cs-fixer.cache
+.phpunit.result.cache
+
+# Environment
+.env
+.env.local
+.env.prod
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+tts.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose.override.yml
+
+# Audio files
+*.mp3
+*.wav
+*.ogg
+voices.json
