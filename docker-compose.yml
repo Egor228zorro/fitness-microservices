@@ -96,6 +96,7 @@ services:
     image: rabbitmq:3-management-alpine
     hostname: rabbitmq
     container_name: rabbitmq
+    init: true
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS}
