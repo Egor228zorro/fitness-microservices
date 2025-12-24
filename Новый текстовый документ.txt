@@ -1,0 +1,18 @@
+@echo off
+echo Applying database migrations...
+
+set PG_PATH="D:\programs_stud\15\bin\psql.exe"
+set PGPASSWORD=postgres
+
+echo Creating databases...
+%PG_PATH% -U postgres -h 127.0.0.1 -c "CREATE DATABASE training_db;" 2>nul || echo Database may already exist
+%PG_PATH% -U postgres -h 127.0.0.1 -c "CREATE DATABASE tts_db;" 2>nul || echo Database may already exist
+
+echo Applying training service migrations...
+%PG_PATH% -U postgres -h 127.0.0.1 -d training_db -f "training-service\docker-entrypoint-initdb.d\01-init-tables.sql"
+
+echo Applying TTS service migrations...
+%PG_PATH% -U postgres -h 127.0.0.1 -d tts_db -f "text-to-speech-service\docker-entrypoint-initdb.d\01-init-tables.sql"
+
+echo Migrations completed!
+pause

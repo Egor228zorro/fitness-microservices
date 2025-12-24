@@ -24,12 +24,12 @@ services:
     ports:
       - "8001:80"
     environment:
-      - DB_HOST=training-db
+      - DB_HOST=localhost
       - DB_NAME=training_db
       - DB_USER=postgres
       - DB_PASS=${DB_PASSWORD}
-      - RABBITMQ_HOST=rabbitmq
-      - RABBITMQ_PORT=5672
+      - RABBITMQ_HOST=localhost
+      - RABBITMQ_PORT=5432
       - RABBITMQ_USER=${RABBITMQ_USER}
       - RABBITMQ_PASS=${RABBITMQ_PASS}
       - RABBITMQ_CONNECT_TIMEOUT=30
@@ -60,8 +60,11 @@ services:
     image: postgres:13
     environment:
       POSTGRES_DB: tts_db
+      DB_PORT=5432
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${DB_PASSWORD}
+
+
     networks:
       - rebuilder-network
     volumes:
@@ -80,7 +83,7 @@ services:
       - DB_NAME=tts_db
       - DB_USER=postgres
       - DB_PASS=${DB_PASSWORD}
-      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_HOST=localhost
       - RABBITMQ_PORT=5672
       - RABBITMQ_USER=${RABBITMQ_USER}
       - RABBITMQ_PASS=${RABBITMQ_PASS}
