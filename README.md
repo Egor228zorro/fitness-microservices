@@ -61,7 +61,59 @@
 ##### Через Docker
 docker-compose up api-gateway
 
+
 ##### Локально (требуется PHP 8.2+)
 cd api-gateway
 composer install
 php -S localhost:8000 -t public
+## Основные эндпоинты
+### Публичные эндпоинты (без аутентификации):
+- **GET  /**:= Информация о Gateway
+
+- **GET  /health**: Health check.
+
+- **POST /auth/test-login**:  Получение тестового токена.
+
+- **GET  /tts/voices**: Получение голосов TTS (публичный).
+
+- **POST /auth/test-login**:  Получение тестового токена для разработки.
+
+### Приватные эндпоинты ,связанные с **TTS Service** (с аутентификацией):
+- **POST /tts/generate**: Генерация речи.
+
+- **GET  /tts/status/{jobId}**: Статус задачи TTS.
+
+- **GET  /tts/audio/{filename}**: Получение аудио файла.
+
+- **POST /tts/validate-voice**: Валидация голоса (в коде публичный, но middleware делает приватным).
+
+- **GET  /tts/metrics**: Метрики сервис.
+
+- **GET  /tts/test-500**: Тест 500 ошибки.
+
+- **GET  /tts/test-sync**: Тест синхронной генерации.
+
+- **GET  /tts/test-async**: Тест асинхронной генерации.
+
+- **POST /tts/debug-body**: Отладочный эндпоинт (добавлен вами).
+
+- **GET  /tts/health**: Health check TTS.
+
+- **GET  /tts/**: Информация о TTS Service.
+
+### Приватные эндпоинты ,связанные с **Training Service** (с аутентификацией):
+
+
+- **`GET/POST/PUT/DELETE /private/workouts/*`**: - Workout management.
+
+- **`GET/POST/PUT/DELETE /private/exercises/*`**: - Exercise management.
+
+- **`GET /private/workouts/{id}/tts`**: - TTS for specific workout.
+
+- **`GET /db-test`**: - тест базы данных
+- **ANY /private/workouts/***: → Прокси на Training Service.
+
+- **ANY /private/exercises/***: → Прокси на Training Service.
+
+- **ANY /tts/***: → Прокси на TTS Service.
+надо раскрыть значение эндпоинта чуть чуть подробнее каждого
