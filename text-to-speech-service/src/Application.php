@@ -32,7 +32,22 @@ class Application
         $this->murfApiKey = is_string($apiKey) ? $apiKey : '';
 
         $this->app->addBodyParsingMiddleware();
-
+        $this->app->add(function (Request $request, $handler) {
+            $contentType = $request->getHeaderLine('Content-Type');
+            
+            if (strstr($contentType, 'application/json')) {
+                $rawBody = (string)$request->getBody();
+                if (!empty($rawBody)) {
+                    $parsed = json_decode($rawBody, true);
+                    if (json_last_error() === JSON_ERROR_NONE && is_array($parsed)) {
+                        $request = $request->withParsedBody($parsed);
+                    }
+                }
+            }
+            
+            return $handler->handle($request);
+        });
+        
         // ✅ КРИТИЧЕСКИ ВАЖНО: Добавляем ПУСТОЙ ErrorMiddleware который НЕ преобразует
         $errorMiddleware = $this->app->addErrorMiddleware(
             false,  // displayErrorDetails
@@ -313,7 +328,6 @@ class Application
             return $self->writeJson($response, $metrics, $request->getUri()->getPath());
         });
 
-
         // Тестовый маршрут для 500 ошибки
         $this->app->get('/test-500', function (Request $request, Response $response): Response {
             throw new \RuntimeException('Тестовая 500 ошибка: что-то пошло не так!');
@@ -329,6 +343,26 @@ class Application
         $this->app->get('/test-async', function (Request $request, Response $response) use ($self): Response {
             $testText = "Hello! This is an async test with RabbitMQ.";
             return $self->generateSpeech($response, $testText, 'en-US-alina', null, $request->getUri()->getPath());
+        });
+
+        // ===== ОТЛАДОЧНЫЙ МАРШРУТ ДЛЯ ДИАГНОСТИКИ ПАРСИНГА ТЕЛА =====
+        $this->app->post('/debug-body', function (Request $request, Response $response): Response {
+            $rawBody = (string)$request->getBody();
+            $contentType = $request->getHeaderLine('Content-Type');
+            $parsedBody = $request->getParsedBody();
+            
+            $data = [
+                'parsed_body' => $parsedBody,
+                'raw_body' => $rawBody,
+                'content_type' => $contentType,
+                'method' => $request->getMethod(),
+                'php_input' => file_get_contents('php://input'),
+                'headers' => $request->getHeaders()
+            ];
+            
+            $json = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+            $response->getBody()->write($json);
+            return $response->withHeader('Content-Type', 'application/json');
         });
 
         // Корневой маршрут
@@ -349,7 +383,8 @@ class Application
                     '/metrics' => 'Service metrics',
                     '/test-500' => 'Test 500 error',
                     '/test-sync' => 'Test sync generation',
-                    '/test-async' => 'Test async generation'
+                    '/test-async' => 'Test async generation',
+                    '/debug-body' => 'Debug request body parsing'
                 ]
             ];
 

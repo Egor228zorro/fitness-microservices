@@ -318,7 +318,6 @@ class Application
             unset($options['headers']['Content-Length']);
 
             // Передаем пользовательские данные сервисам
-            // Передаем пользовательские данные сервисам
             /** @phpstan-ignore function.alreadyNarrowedType */
             if (is_array($user) && array_key_exists('user_id', $user) /** @phpstan-ignore function.alreadyNarrowedType */ && array_key_exists('role', $user)) {
                 $options['headers']['X-User-Id'] = [$user['user_id']];
@@ -326,14 +325,33 @@ class Application
                 error_log("Adding user headers: " . json_encode(['X-User-Id' => $user['user_id'], 'X-User-Role' => $user['role']]));
             }
 
-            // Добавляем тело запроса
+            // ========== ИСПРАВЛЕННЫЙ КОД: Правильная передача JSON тела ==========
             $bodyContent = $request->getBody()->getContents();
             $request->getBody()->rewind(); // Важно: перематываем поток
 
             if (in_array($method, ['POST', 'PUT', 'PATCH', 'DELETE']) && !empty($bodyContent)) {
-                $options['body'] = $bodyContent;
-                if (empty($options['headers']['Content-Type'])) {
-                    $options['headers']['Content-Type'] = ['application/json'];
+                $contentType = $request->getHeaderLine('Content-Type');
+                error_log("Content-Type: " . $contentType);
+                error_log("Body (raw): " . substr($bodyContent, 0, 200));
+                
+                if (strstr($contentType, 'application/json')) {
+                    // Пытаемся распарсить JSON для проверки валидности
+                    $jsonData = json_decode($bodyContent, true);
+                    if (json_last_error() === JSON_ERROR_NONE) {
+                        // ✅ ПРАВИЛЬНЫЙ СПОСОБ: Используем 'json' опцию Guzzle
+                        $options['json'] = $jsonData;
+                        error_log("Body parsed as JSON successfully, using 'json' option");
+                    } else {
+                        // Если не удалось распарсить, передаем как строку
+                        $options['body'] = $bodyContent;
+                        if (empty($options['headers']['Content-Type'])) {
+                            $options['headers']['Content-Type'] = ['application/json'];
+                        }
+                        error_log("Body is not valid JSON, passing as string. JSON error: " . json_last_error_msg());
+                    }
+                } else {
+                    // Для других типов контента передаем как есть
+                    $options['body'] = $bodyContent;
                 }
             }
 
