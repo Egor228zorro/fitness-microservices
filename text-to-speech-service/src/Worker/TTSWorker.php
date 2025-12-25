@@ -28,8 +28,8 @@ class TTSWorker
         try {
             echo "=== TTS Worker Constructor ===\n";
             echo "Connecting to RabbitMQ at rabbitmq:5672...\n";
-
-            // RabbitMQ соединение
+            
+            // RabbitMQ соединение - Docker гарантирует что RabbitMQ готов (condition: service_healthy)
             $this->connection = new AMQPStreamConnection(
                 'rabbitmq',
                 5672,
@@ -40,6 +40,7 @@ class TTSWorker
                 'AMQPLAIN',
                 null,
                 'en_US',
+                30.0,
                 10.0
             );
 
@@ -51,21 +52,24 @@ class TTSWorker
             $this->storageBaseUrl = (string) (getenv('STORAGE_BASE_URL') ?: 'https://storage.rebuilder.app/audio');
 
             if (empty($this->murfApiKey)) {
-                echo " [⚠] WARNING: MURF_API_KEY not set. Will use mock TTS only.\n";
-                echo " [ℹ] To use real TTS, set MURF_API_KEY in .env or docker-compose.yml\n";
+                echo "[⚠] WARNING: MURF_API_KEY not set. Will use mock TTS only.\n";
             } else {
-                echo " [✓] Murf.ai API key loaded\n";
+                echo "[✓] Murf.ai API key loaded\n";
             }
 
-            echo " [✓] RabbitMQ connected successfully\n";
-            echo " [✓] Storage base URL: {$this->storageBaseUrl}\n";
-            echo " [*] TTS Worker started. Waiting for tasks...\n";
+            echo "[✓] RabbitMQ connected successfully\n";
+            echo "[✓] Storage base URL: {$this->storageBaseUrl}\n";
+            echo "[*] TTS Worker started. Waiting for tasks...\n";
 
         } catch (\Exception $e) {
-            echo " [!] FATAL ERROR in constructor: " . $e->getMessage() . "\n";
+            // Если RabbitMQ не доступен после healthcheck - это критическая ошибка
+            echo "[!] CRITICAL ERROR: RabbitMQ should be ready but: " . $e->getMessage() . "\n";
             echo "Stack trace: " . $e->getTraceAsString() . "\n";
-            error_log("TTS Worker FATAL: " . $e->getMessage());
-            exit(1);
+            error_log("TTS Worker CRITICAL: " . $e->getMessage());
+            
+            // НЕ завершаем скрипт - пусть supervisor решает что делать
+            // Может быть временная проблема сети
+            throw $e; // Просто пробрасываем исключение
         }
     }
 
@@ -76,15 +80,15 @@ class TTSWorker
     private function callInternalTtsApi(string $text, string $voiceId, string $jobId): array
     {
         try {
-            echo " [🌐] Calling INTERNAL TTS Service API...\n";
-            echo "     Job ID: {$jobId}\n";
-            echo "     Voice: {$voiceId}\n";
-            echo "     Text length: " . strlen($text) . " chars\n";
+            echo "[🌐] Calling INTERNAL TTS Service API...\n";
+            echo "    Job ID: {$jobId}\n";
+            echo "    Voice: {$voiceId}\n";
+            echo "    Text length: " . strlen($text) . " chars\n";
 
             // Ограничение длины текста
             $maxLength = 5000;
             if (strlen($text) > $maxLength) {
-                echo " [⚠] Text too long (" . strlen($text) . " chars), truncating to {$maxLength}\n";
+                echo "[⚠] Text too long (" . strlen($text) . " chars), truncating to {$maxLength}\n";
                 $text = substr($text, 0, $maxLength) . '... [truncated]';
             }
 
@@ -104,7 +108,7 @@ class TTSWorker
                 'job_id' => $jobId,
             ];
 
-            echo " [📤] Sending request to internal service: /internal/generate-sync\n";
+            echo "[📤] Sending request to internal service: /internal/generate-sync\n";
 
             $response = $client->post('/internal/generate-sync', [
                 'json' => $payload,
@@ -114,21 +118,21 @@ class TTSWorker
             $statusCode = $response->getStatusCode();
             $body = $response->getBody()->getContents();
 
-            echo " [🔍] Internal service response: HTTP {$statusCode}\n";
-            echo " [🔍] Response body length: " . strlen($body) . " bytes\n";
+            echo "[🔍] Internal service response: HTTP {$statusCode}\n";
+            echo "[🔍] Response body length: " . strlen($body) . " bytes\n";
 
             $bodyPreview = substr($body, 0, 500);
             if (strlen($body) > 500) {
                 $bodyPreview .= '...';
             }
-            echo " [🔍] Response preview: {$bodyPreview}\n";
+            echo "[🔍] Response preview: {$bodyPreview}\n";
 
             /** @var array<string, mixed> $result */
             $result = json_decode($body, true);
 
             if (json_last_error() !== JSON_ERROR_NONE) {
-                echo " [✗] JSON decode error: " . json_last_error_msg() . "\n";
-                echo " [✗] Raw body: " . $body . "\n";
+                echo "[✗] JSON decode error: " . json_last_error_msg() . "\n";
+                echo "[✗] Raw body: " . $body . "\n";
 
                 return [
                     'success' => false,
@@ -141,10 +145,10 @@ class TTSWorker
 
             if ($statusCode === 200) {
                 if (isset($result['audio_url']) && is_string($result['audio_url'])) {
-                    echo " [✓] Internal TTS API success (audio_url found)\n";
-                    echo "     Audio URL: {$result['audio_url']}\n";
+                    echo "[✓] Internal TTS API success (audio_url found)\n";
+                    echo "    Audio URL: {$result['audio_url']}\n";
                     $mock = isset($result['mock']) ? (bool) $result['mock'] : false;
-                    echo "     Mock: " . ($mock ? 'YES' : 'NO') . "\n";
+                    echo "    Mock: " . ($mock ? 'YES' : 'NO') . "\n";
 
                     return [
                         'success' => isset($result['success']) ? (bool) $result['success'] : true,
@@ -154,8 +158,8 @@ class TTSWorker
                         'status_code' => $statusCode
                     ];
                 } elseif (isset($result['audioUrl']) && is_string($result['audioUrl'])) {
-                    echo " [✓] Internal TTS API success (audioUrl found)\n";
-                    echo "     Audio URL: {$result['audioUrl']}\n";
+                    echo "[✓] Internal TTS API success (audioUrl found)\n";
+                    echo "    Audio URL: {$result['audioUrl']}\n";
 
                     return [
                         'success' => isset($result['success']) ? (bool) $result['success'] : true,
@@ -165,8 +169,8 @@ class TTSWorker
                         'status_code' => $statusCode
                     ];
                 } elseif (isset($result['audioFile']) && is_string($result['audioFile'])) {
-                    echo " [✓] Internal TTS API success (audioFile found)\n";
-                    echo "     Audio URL: {$result['audioFile']}\n";
+                    echo "[✓] Internal TTS API success (audioFile found)\n";
+                    echo "    Audio URL: {$result['audioFile']}\n";
 
                     return [
                         'success' => isset($result['success']) ? (bool) $result['success'] : true,
@@ -185,8 +189,8 @@ class TTSWorker
                         $errorMsg = 'Success but no audio URL found';
                     }
 
-                    echo " [⚠] Success response but no audio URL: {$errorMsg}\n";
-                    echo " [🔍] Response keys: " . implode(', ', array_keys($result)) . "\n";
+                    echo "[⚠] Success response but no audio URL: {$errorMsg}\n";
+                    echo "[🔍] Response keys: " . implode(', ', array_keys($result)) . "\n";
                 }
             }
 
@@ -199,7 +203,7 @@ class TTSWorker
                 $errorMsg = 'Unknown internal service error';
             }
 
-            echo " [✗] Internal service error (HTTP {$statusCode}): {$errorMsg}\n";
+            echo "[✗] Internal service error (HTTP {$statusCode}): {$errorMsg}\n";
 
             return [
                 'success' => false,
@@ -210,7 +214,7 @@ class TTSWorker
             ];
 
         } catch (RequestException $e) {
-            echo " [✗] Internal service HTTP error: " . $e->getMessage() . "\n";
+            echo "[✗] Internal service HTTP error: " . $e->getMessage() . "\n";
 
             return [
                 'success' => false,
@@ -219,7 +223,7 @@ class TTSWorker
                 'error' => 'HTTP Request failed: ' . $e->getMessage()
             ];
         } catch (\Exception $e) {
-            echo " [✗] Internal service general error: " . $e->getMessage() . "\n";
+            echo "[✗] Internal service general error: " . $e->getMessage() . "\n";
 
             return [
                 'success' => false,
@@ -237,7 +241,7 @@ class TTSWorker
      */
     private function generateTtsText(array $workoutData, array $exercisesData): string
     {
-        echo " [📝] Generating TTS text from workout data...\n";
+        echo "[📝] Generating TTS text from workout data...\n";
 
         $name = $workoutData['name'] ?? 'Без названия';
         $text = "Начинаем тренировку. " . (is_string($name) ? $name : 'Без названия') . ". ";
@@ -277,14 +281,14 @@ class TTSWorker
 
         $text .= "Тренировка завершена. Хорошей работы!";
 
-        echo "     Generated text length: " . strlen($text) . " chars\n";
+        echo "    Generated text length: " . strlen($text) . " chars\n";
         return $text;
     }
 
     public function run(): void
     {
         if (!$this->channel) {
-            echo " [!] RabbitMQ channel not available\n";
+            echo "[!] RabbitMQ channel not available\n";
             return;
         }
 
@@ -294,7 +298,7 @@ class TTSWorker
 
             // Проверяем что декодирование прошло успешно
             if (!is_array($rawData)) {
-                echo " [!] Invalid message format\n";
+                echo "[!] Invalid message format\n";
                 $msg->ack();
                 return;
             }
@@ -331,22 +335,22 @@ class TTSWorker
 
             // Проверяем что обязательные поля не пустые
             if (empty($jobId)) {
-                echo " [!] Empty job_id\n";
+                echo "[!] Empty job_id\n";
                 $msg->ack();
                 return;
             }
 
             echo "\n" . str_repeat("=", 60) . "\n";
-            echo " [x] Processing job: {$jobId}\n";
-            echo "     Workout ID: " . ($workoutId ?? 'null') . "\n";
-            echo "     Voice: {$voiceId}\n";
-            echo "     Queue message ID: " . $msg->getDeliveryTag() . "\n";
+            echo "[x] Processing job: {$jobId}\n";
+            echo "    Workout ID: " . ($workoutId ?? 'null') . "\n";
+            echo "    Voice: {$voiceId}\n";
+            echo "    Queue message ID: " . $msg->getDeliveryTag() . "\n";
 
             try {
                 $db = \Rebuilder\TextToSpeech\Database\TTSDatabaseConnection::getInstance()->getConnection();
-                echo " [✓] Database connected\n";
+                echo "[✓] Database connected\n";
             } catch (\Exception $e) {
-                echo " [✗] Database connection failed: " . $e->getMessage() . "\n";
+                echo "[✗] Database connection failed: " . $e->getMessage() . "\n";
                 return;
             }
 
@@ -359,7 +363,7 @@ class TTSWorker
                 if ($existingJob !== false &&
                     isset($existingJob['status']) &&
                     in_array($existingJob['status'], ['completed', 'processing', 'failed'], true)) {
-                    echo " [⚠] Job already processed with status: {$existingJob['status']}\n";
+                    echo "[⚠] Job already processed with status: {$existingJob['status']}\n";
                     $msg->ack();
                     return;
                 }
@@ -392,13 +396,13 @@ class TTSWorker
                     ':status' => 'processing'
                 ]);
 
-                echo " [✓] Job status updated to 'processing'\n";
+                echo "[✓] Job status updated to 'processing'\n";
 
                 if (empty($text) && !empty($workoutData) && !empty($exercisesData)) {
-                    echo " [🔄] Generating TTS text from workout data...\n";
+                    echo "[🔄] Generating TTS text from workout data...\n";
                     /** @var array<array<string, mixed>> $exercisesData */
                     $text = $this->generateTtsText($workoutData, $exercisesData);
-                    echo "     Generated text preview: " . substr($text, 0, 100) . "...\n";
+                    echo "    Generated text preview: " . substr($text, 0, 100) . "...\n";
                 }
 
                 if (empty($text)) {
@@ -409,7 +413,7 @@ class TTSWorker
                 $ttsResult = $this->callInternalTtsApi($text, $voiceId, $jobId);
                 $processingTime = round(microtime(true) - $startTime, 2);
 
-                echo " [⏱] TTS processing time: {$processingTime} seconds\n";
+                echo "[⏱] TTS processing time: {$processingTime} seconds\n";
 
                 $updateData = [
                     'status' => $ttsResult['success'] ? 'completed' : 'failed',
@@ -434,7 +438,7 @@ class TTSWorker
 
                 $ttsResultForDb = [
                     'success' => $ttsResult['success'],
-                    'mock' => $ttsResult['mock'],  // УБРАЛ `?? false`
+                    'mock' => $ttsResult['mock'],
                     'processing_time' => $processingTime,
                     'text_length' => strlen($text),
                     'timestamp' => date('Y-m-d H:i:s'),
@@ -447,13 +451,13 @@ class TTSWorker
                 ]));
 
                 if ($ttsResult['success']) {
-                    echo " [✅] Job completed successfully: {$jobId}\n";
-                    echo "     Audio URL: {$ttsResult['audio_url']}\n";
-                    echo "     Mock: " . ($ttsResult['mock'] ? 'YES' : 'NO') . "\n";
+                    echo "[✅] Job completed successfully: {$jobId}\n";
+                    echo "    Audio URL: {$ttsResult['audio_url']}\n";
+                    echo "    Mock: " . ($ttsResult['mock'] ? 'YES' : 'NO') . "\n";
                 } else {
-                    echo " [❌] Job failed: {$jobId}\n";
+                    echo "[❌] Job failed: {$jobId}\n";
                     $error = $ttsResult['error'] ?? 'Unknown error';
-                    echo "     Error: " . $error . "\n";
+                    echo "    Error: " . $error . "\n";
                 }
 
                 try {
@@ -468,13 +472,13 @@ class TTSWorker
                         $msg->body,
                         $jobId
                     ]);
-                    echo " [📚] Message archived\n";
+                    echo "[📚] Message archived\n";
                 } catch (\Exception $archiveError) {
-                    echo " [⚠] Archive failed: " . $archiveError->getMessage() . "\n";
+                    echo "[⚠] Archive failed: " . $archiveError->getMessage() . "\n";
                 }
 
                 $msg->ack();
-                echo " [✓] Message acknowledged and removed from queue\n";
+                echo "[✓] Message acknowledged and removed from queue\n";
 
             } catch (\Exception $e) {
                 try {
@@ -486,23 +490,23 @@ class TTSWorker
                         WHERE job_id = ?
                     ");
                     $stmt->execute([$e->getMessage(), $jobId]);
-                    echo " [💀] Job marked as failed: {$jobId}\n";
-                    echo "     Error: " . $e->getMessage() . "\n";
+                    echo "[💀] Job marked as failed: {$jobId}\n";
+                    echo "    Error: " . $e->getMessage() . "\n";
                 } catch (\Exception $updateError) {
-                    echo " [⚠] Failed to update error status: " . $updateError->getMessage() . "\n";
+                    echo "[⚠] Failed to update error status: " . $updateError->getMessage() . "\n";
                 }
 
-                echo " [✗] Job processing error: " . $e->getMessage() . "\n";
+                echo "[✗] Job processing error: " . $e->getMessage() . "\n";
                 echo "Stack trace:\n" . $e->getTraceAsString() . "\n";
 
-                echo " [⚠] Message NOT acknowledged - will stay in queue for retry\n";
+                echo "[⚠] Message NOT acknowledged - will stay in queue for retry\n";
             }
 
             echo str_repeat("=", 60) . "\n\n";
         };
 
         try {
-            $this->channel->basic_qos(0, 1, false);  // 0 вместо null, false вместо null
+            $this->channel->basic_qos(0, 1, false);
 
             $this->channel->basic_consume(
                 'tts_tasks',
@@ -514,16 +518,16 @@ class TTSWorker
                 $callback
             );
 
-            echo " [✓] Waiting for messages in queue 'tts_tasks'...\n";
-            echo " [✓] Manual acknowledgement enabled\n";
-            echo " [✓] Prefetch count: 1 (process one message at a time)\n";
-            echo " [✓] Messages flow:\n";
-            echo "     1. Receive from RabbitMQ\n";
-            echo "     2. Update DB status to 'processing'\n";
-            echo "     3. Call INTERNAL TTS Service API (/internal/generate-sync)\n";
-            echo "     4. Update DB with result\n";
-            echo "     5. Archive message\n";
-            echo "     6. Acknowledge (remove from queue)\n";
+            echo "[✓] Waiting for messages in queue 'tts_tasks'...\n";
+            echo "[✓] Manual acknowledgement enabled\n";
+            echo "[✓] Prefetch count: 1 (process one message at a time)\n";
+            echo "[✓] Messages flow:\n";
+            echo "    1. Receive from RabbitMQ\n";
+            echo "    2. Update DB status to 'processing'\n";
+            echo "    3. Call INTERNAL TTS Service API (/internal/generate-sync)\n";
+            echo "    4. Update DB with result\n";
+            echo "    5. Archive message\n";
+            echo "    6. Acknowledge (remove from queue)\n";
             echo "\n" . str_repeat("-", 60) . "\n";
 
             while ($this->channel->is_consuming()) {
@@ -531,22 +535,20 @@ class TTSWorker
             }
 
         } catch (\Exception $e) {
-            echo " [!] Error in main loop: " . $e->getMessage() . "\n";
+            echo "[!] Error in main loop: " . $e->getMessage() . "\n";
             error_log("TTS Worker loop error: " . $e->getMessage());
         } finally {
             try {
-                // Явно проверяем на null, хотя PhpStan знает что не null
                 if ($this->channel !== null) {
                     $this->channel->close();
                 }
                 if ($this->connection !== null) {
                     $this->connection->close();
                 }
-                echo " [✓] RabbitMQ connection closed\n";
+                echo "[✓] RabbitMQ connection closed\n";
             } catch (\Exception $e) {
                 // Игнорируем ошибки закрытия
             }
-
         }
     }
 }
@@ -564,7 +566,7 @@ if (php_sapi_name() === 'cli') {
         $worker = new TTSWorker();
         $worker->run();
     } catch (\Exception $e) {
-        echo " [!] Global error: " . $e->getMessage() . "\n";
+        echo "[!] Global error: " . $e->getMessage() . "\n";
         error_log("TTS Worker global error: " . $e->getMessage());
         exit(1);
     }
