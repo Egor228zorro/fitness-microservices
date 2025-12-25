@@ -35,10 +35,8 @@ services:
       - RABBITMQ_CONNECT_TIMEOUT=30
       - RABBITMQ_RECONNECT_INTERVAL=10
     depends_on:
-      training-db:
-        condition: service_started
-      rabbitmq:
-        condition: service_healthy
+      - training-db
+      - rabbitmq
     networks:
       - rebuilder-network
 
@@ -83,28 +81,23 @@ services:
       - RABBITMQ_CONNECT_TIMEOUT=30
       - RABBITMQ_RECONNECT_INTERVAL=10
     depends_on:
-      tts-db:
-        condition: service_started
-      rabbitmq:
-        condition: service_healthy
+      - tts-db
+      - rabbitmq
 
   rabbitmq:
-    image: rabbitmq:3-management-alpine
+    image: rabbitmq:3.12-management-alpine
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS}
     ports:
       - "15672:15672"
       - "5672:5672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
     networks:
       - rebuilder-network
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
 
 volumes:
   training_data:
   tts_data:
+  rabbitmq_data:
