@@ -24,12 +24,12 @@ services:
     ports:
       - "8001:80"
     environment:
-      - DB_HOST=localhost
+      - DB_HOST=training-db
       - DB_NAME=training_db
       - DB_USER=postgres
       - DB_PASS=${DB_PASSWORD}
-      - RABBITMQ_HOST=localhost
-      - RABBITMQ_PORT=5432
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
       - RABBITMQ_USER=${RABBITMQ_USER}
       - RABBITMQ_PASS=${RABBITMQ_PASS}
       - RABBITMQ_CONNECT_TIMEOUT=30
@@ -49,22 +49,15 @@ services:
     networks:
       - rebuilder-network
     depends_on:
-      training-service:
-        condition: service_started
-      text-to-speech-service:
-        condition: service_started
-      rabbitmq:
-        condition: service_healthy
+      - training-service
+      - text-to-speech-service
 
   tts-db:
     image: postgres:13
     environment:
       POSTGRES_DB: tts_db
-      DB_PORT=5432
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${DB_PASSWORD}
-
-
     networks:
       - rebuilder-network
     volumes:
@@ -83,7 +76,7 @@ services:
       - DB_NAME=tts_db
       - DB_USER=postgres
       - DB_PASS=${DB_PASSWORD}
-      - RABBITMQ_HOST=localhost
+      - RABBITMQ_HOST=rabbitmq
       - RABBITMQ_PORT=5672
       - RABBITMQ_USER=${RABBITMQ_USER}
       - RABBITMQ_PASS=${RABBITMQ_PASS}
@@ -97,9 +90,6 @@ services:
 
   rabbitmq:
     image: rabbitmq:3-management-alpine
-    hostname: rabbitmq
-    container_name: rabbitmq
-    init: true
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS}
@@ -108,17 +98,12 @@ services:
       - "5672:5672"
     networks:
       - rebuilder-network
-    volumes:
-      - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
-    mem_limit: 512m
-    mem_reservation: 256m
-    restart: unless-stopped
 
 volumes:
   training_data:
