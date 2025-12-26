@@ -15,6 +15,13 @@ services:
       - training_data:/var/lib/postgresql/data
     networks:
       - rebuilder-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
 
   tts-db:
     image: postgres:13
@@ -26,6 +33,13 @@ services:
       - rebuilder-network
     volumes:
       - tts_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
 
   rabbitmq:
     image: rabbitmq:3-management-alpine
@@ -41,11 +55,14 @@ services:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
       interval: 10s
       timeout: 5s
-      retries: 10
-      start_period: 20s
+      retries: 15
+      start_period: 40s
+    restart: unless-stopped
 
   training-service:
-    build: ./training-service
+    build: 
+      context: ./training-service
+      dockerfile: Dockerfile
     ports:
       - "8001:80"
     environment:
@@ -59,14 +76,17 @@ services:
       RABBITMQ_PASS: ${RABBITMQ_PASS}
     depends_on:
       training-db:
-        condition: service_started
+        condition: service_healthy
       rabbitmq:
         condition: service_healthy
     networks:
       - rebuilder-network
+    restart: unless-stopped
 
   text-to-speech-service:
-    build: ./text-to-speech-service
+    build: 
+      context: ./text-to-speech-service
+      dockerfile: Dockerfile
     ports:
       - "8002:80"
     environment:
@@ -81,24 +101,28 @@ services:
       RABBITMQ_PASS: ${RABBITMQ_PASS}
     depends_on:
       tts-db:
-        condition: service_started
+        condition: service_healthy
       rabbitmq:
-        condition: service_healthy  # ← ОСНОВНОЕ ИЗМЕНЕНИЕ
+        condition: service_healthy
     networks:
       - rebuilder-network
+    restart: unless-stopped
 
   api-gateway:
-    build: ./api-gateway
+    build: 
+      context: ./api-gateway
+      dockerfile: Dockerfile
     ports:
       - "8000:80"
     depends_on:
-      training-service:
-        condition: service_started
-      text-to-speech-service:
-        condition: service_started
+      - training-service
+      - text-to-speech-service
     networks:
       - rebuilder-network
+    restart: unless-stopped
 
 volumes:
   training_data:
+    driver: local
   tts_data:
+    driver: local
