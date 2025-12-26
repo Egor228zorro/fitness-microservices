@@ -21,6 +21,7 @@ class Application
     private App $app;
     private Client $httpClient;
     private string $murfApiKey;
+    private string $basePublicUrl;
 
     public function __construct()
     {
@@ -31,6 +32,9 @@ class Application
         $apiKey = $_ENV['MURF_API_KEY'] ?? '';
         $this->murfApiKey = is_string($apiKey) ? $apiKey : '';
 
+        // Базовый URL для публичных ссылок через API Gateway
+        $this->basePublicUrl = $_ENV['TTS_PUBLIC_URL'] ?? 'http://localhost:8000';
+        
         $this->app->addBodyParsingMiddleware();
         $this->app->add(function (Request $request, $handler) {
             $contentType = $request->getHeaderLine('Content-Type');
@@ -117,7 +121,8 @@ class Application
                 'service' => 'text-to-speech',
                 'murf_api_configured' => !empty($self->murfApiKey),
                 'rabbitmq_available' => $self->checkRabbitMQ(),
-                'timestamp' => date('Y-m-d H:i:s')
+                'timestamp' => date('Y-m-d H:i:s'),
+                'public_url_base' => $self->basePublicUrl
             ];
 
             return $self->writeJson($response, $data, $request->getUri()->getPath());
@@ -200,7 +205,7 @@ class Application
             return $self->getJobStatus($response, $jobId, $request->getUri()->getPath());
         });
 
-        // ✅ НОВЫЙ: Скачивание локального аудио файла
+        // ✅ ВАЖНО: Локальный эндпоинт для аудио (только для внутреннего использования через Gateway)
         $this->app->get('/audio/{filename}', function (Request $request, Response $response, array $args): Response {
             $filename = $args['filename'];
     
@@ -372,13 +377,14 @@ class Application
                 'provider' => 'Murf.ai',
                 'api_configured' => !empty($self->murfApiKey),
                 'queue_system' => 'RabbitMQ',
+                'public_url_base' => $self->basePublicUrl,
                 'endpoints' => [
                     '/health' => 'Health check',
                     '/voices' => 'Get available voices',
                     '/generate' => 'Generate speech (POST: text, voice_id, workout_id)',
                     '/internal/generate-sync' => 'Sync speech generation for TTS Worker',
                     '/status/{jobId}' => 'Get TTS job status',
-                    '/audio/{filename}' => 'Get audio file',
+                    '/audio/{filename}' => '[INTERNAL] Get audio file (use via Gateway)',
                     '/validate-voice' => 'Validate voice ID',
                     '/metrics' => 'Service metrics',
                     '/test-500' => 'Test 500 error',
@@ -459,19 +465,20 @@ class Application
             // Прямой вызов Murf.ai API
             if (empty($this->murfApiKey)) {
                 // Mock режим
-                $audioUrl = 'https://storage.rebuilder.app/audio/mock/' . uniqid('mock_', true) . '.mp3';
+                $audioUrl = $this->basePublicUrl . '/audio/mock/' . uniqid('mock_', true) . '.mp3';
 
                 $stmt = $db->prepare("
                     UPDATE tts_jobs 
                     SET status = 'completed', 
                         result_url = :result_url,
+                        audio_local_path = NULL,
                         updated_at = CURRENT_TIMESTAMP,
                         payload = jsonb_set(
                             COALESCE(payload::jsonb, '{}'::jsonb), 
                             '{mock}', 
                             to_jsonb(true::boolean)
                         )
-                WHERE job_id = :job_id
+                    WHERE job_id = :job_id
                 ");
                 $stmt->execute([
                     ':result_url' => $audioUrl,
@@ -530,11 +537,11 @@ class Application
                         $filepath = $audioDir . $filename;
                         file_put_contents($filepath, $audioContent);
                         
-                        // 4. Создаем публичную ссылку
+                        // 4. Создаем публичную ссылку через API Gateway
                         $publicUrl = "/audio/{$filename}";
-                        $fullUrl = "http://localhost:8002" . $publicUrl;
+                        $fullUrl = $this->basePublicUrl . $publicUrl;
                         
-                        // 5. Сохраняем свою ссылку в БД
+                        // 5. Сохраняем ссылку в БД
                         $stmt = $db->prepare("
                             UPDATE tts_jobs 
                             SET status = 'completed', 
@@ -549,7 +556,7 @@ class Application
                             WHERE job_id = :job_id
                         ");
                         $stmt->execute([
-                            ':result_url' => $fullUrl,
+                            ':result_url' => $fullUrl, // ✅ КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: ссылка через Gateway
                             ':local_path' => $filepath,
                             ':murf_result' => json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
                             ':job_id' => $jobId
@@ -558,8 +565,8 @@ class Application
                         return $this->writeJson($response, [
                             'success' => true,
                             'job_id' => $jobId,
-                            'audio_url' => $fullUrl,
-                            'local_url' => $publicUrl,
+                            'audio_url' => $fullUrl, // ✅ Возвращаем клиенту ссылку через Gateway
+                            'local_path' => $filepath,
                             'mock' => false,
                             'message' => 'Audio generated and saved locally'
                         ], $path);
@@ -571,6 +578,7 @@ class Application
                             UPDATE tts_jobs 
                             SET status = 'completed', 
                                 result_url = :result_url,
+                                audio_local_path = NULL,
                                 updated_at = CURRENT_TIMESTAMP,
                                 payload = jsonb_set(
                                     COALESCE(payload::jsonb, '{}'::jsonb), 
@@ -602,6 +610,7 @@ class Application
                         UPDATE tts_jobs 
                         SET status = 'failed', 
                             error_message = :error_message,
+                            audio_local_path = NULL,
                             updated_at = CURRENT_TIMESTAMP
                         WHERE job_id = :job_id
                     ");
@@ -625,6 +634,7 @@ class Application
                     UPDATE tts_jobs 
                     SET status = 'failed', 
                         error_message = :error_message,
+                        audio_local_path = NULL,
                         updated_at = CURRENT_TIMESTAMP
                     WHERE job_id = :job_id
                 ");
@@ -761,6 +771,7 @@ class Application
                     UPDATE tts_jobs 
                     SET status = 'failed', 
                         error_message = :error,
+                        audio_local_path = NULL,
                         updated_at = CURRENT_TIMESTAMP
                     WHERE job_id = :job_id
                 ");
