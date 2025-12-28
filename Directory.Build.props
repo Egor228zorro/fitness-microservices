@@ -1,0 +1,5 @@
+<Project>
+    <PropertyGroup>
+        <CodeAnalysisRuleSet>$(SolutionDir)StyleCop.ruleset</CodeAnalysisRuleSet>
+    </PropertyGroup>
+</Project>

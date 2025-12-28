@@ -1,0 +1,66 @@
+﻿networks:
+  rebuilder-network:
+    driver: bridge
+
+services:
+#  public_workout_service:
+#    build:
+#      context: .
+#      dockerfile: PublicWorkout/Dockerfile
+#    image: public_workout_service
+#    environment:
+#      - ASPNETCORE_ENVIRONMENT=Development
+#      - ASPNETCORE_URLS=http://+:80
+#    ports:
+#      - "5172:80"
+#    networks:
+#      - rebuilder-network
+#    depends_on:
+#      - public_workout_service-postgres
+
+  public_workout_service-postgres:
+    image: postgres
+    ports:
+      - "5432"
+    networks:
+      - rebuilder-network
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=public_workout
+    volumes:
+      - public_workout_service_data:/var/lib/postgresql/data
+        
+#  user_service:
+#    build:
+#      context: .
+#      dockerfile: IssueTracker.IssueService/Dockerfile
+#    image: user_service
+#    environment:
+#      - ASPNETCORE_ENVIRONMENT=Development
+#      - ASPNETCORE_URLS=http://+:80
+#    ports:
+#      - "5145:80"
+#    networks:
+#      - rebuilder-network
+#    depends_on:
+#      - user_service-postgres
+
+  user_service-postgres:
+    image: postgres
+    ports:
+      - "5432"
+    networks:
+      - rebuilder-network
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=users
+    volumes:
+      - user_service_data:/var/lib/postgresql/data
+    
+volumes:
+  user_service_data:
+  tracking_service_data:
+  public_workout_service_data:
+    

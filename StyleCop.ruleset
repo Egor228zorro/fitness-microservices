@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RuleSet Name="StyleCop Overrides" Description="Global disable SA1503" ToolsVersion="15.0">
+    <Rules AnalyzerId="StyleCop.Analyzers" RuleNamespace="StyleCop.Analyzers">
+        <Rule Id="SA1503" Action="None" />
+    </Rules>
+</RuleSet>
