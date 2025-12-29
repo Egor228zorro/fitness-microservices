@@ -3,7 +3,7 @@ using Pepegov.MicroserviceFramework.Definition.Context;
 using PublicWorkout.Application.Services;
 using PublicWorkout.Application.Services.Interfaces;
 
-namespace User.UI.Api.Definitions.Services;
+namespace PublicWorkout.UI.Api.Definitions.Services;
 
 public class CommentServiceDefinition : ApplicationDefinition
 {

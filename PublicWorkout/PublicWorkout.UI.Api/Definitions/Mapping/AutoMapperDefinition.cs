@@ -2,7 +2,7 @@ using Pepegov.MicroserviceFramework.AspNetCore.WebApplicationDefinition;
 using Pepegov.MicroserviceFramework.Definition;
 using Pepegov.MicroserviceFramework.Definition.Context;
 
-namespace User.UI.Api.Definitions.Mapping;
+namespace PublicWorkout.UI.Api.Definitions.Mapping;
 
 /// <summary>
 /// Register auto mapper

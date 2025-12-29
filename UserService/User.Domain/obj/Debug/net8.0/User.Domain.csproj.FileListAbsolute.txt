@@ -1,0 +1,16 @@
+/workspaces/fitness-microservices/UserService/User.Domain/bin/Debug/net8.0/User.Domain.deps.json
+/workspaces/fitness-microservices/UserService/User.Domain/bin/Debug/net8.0/User.Domain.dll
+/workspaces/fitness-microservices/UserService/User.Domain/bin/Debug/net8.0/User.Domain.pdb
+/workspaces/fitness-microservices/UserService/User.Domain/bin/Debug/net8.0/User.Infrastructure.dll
+/workspaces/fitness-microservices/UserService/User.Domain/bin/Debug/net8.0/User.Infrastructure.pdb
+/workspaces/fitness-microservices/UserService/User.Domain/obj/Debug/net8.0/User.Domain.csproj.AssemblyReference.cache
+/workspaces/fitness-microservices/UserService/User.Domain/obj/Debug/net8.0/User.Domain.GeneratedMSBuildEditorConfig.editorconfig
+/workspaces/fitness-microservices/UserService/User.Domain/obj/Debug/net8.0/User.Domain.AssemblyInfoInputs.cache
+/workspaces/fitness-microservices/UserService/User.Domain/obj/Debug/net8.0/User.Domain.AssemblyInfo.cs
+/workspaces/fitness-microservices/UserService/User.Domain/obj/Debug/net8.0/User.Domain.csproj.CoreCompileInputs.cache
+/workspaces/fitness-microservices/UserService/User.Domain/obj/Debug/net8.0/User.Domain.sourcelink.json
+/workspaces/fitness-microservices/UserService/User.Domain/obj/Debug/net8.0/User.Dom.60DAC363.Up2Date
+/workspaces/fitness-microservices/UserService/User.Domain/obj/Debug/net8.0/User.Domain.dll
+/workspaces/fitness-microservices/UserService/User.Domain/obj/Debug/net8.0/refint/User.Domain.dll
+/workspaces/fitness-microservices/UserService/User.Domain/obj/Debug/net8.0/User.Domain.pdb
+/workspaces/fitness-microservices/UserService/User.Domain/obj/Debug/net8.0/ref/User.Domain.dll

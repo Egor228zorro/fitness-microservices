@@ -1,0 +1,16 @@
+/workspaces/fitness-microservices/PublicWorkout/PublicWorkout.Domain/bin/Debug/net8.0/PublicWorkout.Domain.deps.json
+/workspaces/fitness-microservices/PublicWorkout/PublicWorkout.Domain/bin/Debug/net8.0/PublicWorkout.Domain.dll
+/workspaces/fitness-microservices/PublicWorkout/PublicWorkout.Domain/bin/Debug/net8.0/PublicWorkout.Domain.pdb
+/workspaces/fitness-microservices/PublicWorkout/PublicWorkout.Domain/bin/Debug/net8.0/PublicWorkout.Infrastructure.dll
+/workspaces/fitness-microservices/PublicWorkout/PublicWorkout.Domain/bin/Debug/net8.0/PublicWorkout.Infrastructure.pdb
+/workspaces/fitness-microservices/PublicWorkout/PublicWorkout.Domain/obj/Debug/net8.0/PublicWorkout.Domain.csproj.AssemblyReference.cache
+/workspaces/fitness-microservices/PublicWorkout/PublicWorkout.Domain/obj/Debug/net8.0/PublicWorkout.Domain.GeneratedMSBuildEditorConfig.editorconfig
+/workspaces/fitness-microservices/PublicWorkout/PublicWorkout.Domain/obj/Debug/net8.0/PublicWorkout.Domain.AssemblyInfoInputs.cache
+/workspaces/fitness-microservices/PublicWorkout/PublicWorkout.Domain/obj/Debug/net8.0/PublicWorkout.Domain.AssemblyInfo.cs
+/workspaces/fitness-microservices/PublicWorkout/PublicWorkout.Domain/obj/Debug/net8.0/PublicWorkout.Domain.csproj.CoreCompileInputs.cache
+/workspaces/fitness-microservices/PublicWorkout/PublicWorkout.Domain/obj/Debug/net8.0/PublicWorkout.Domain.sourcelink.json
+/workspaces/fitness-microservices/PublicWorkout/PublicWorkout.Domain/obj/Debug/net8.0/PublicWo.1067C364.Up2Date
+/workspaces/fitness-microservices/PublicWorkout/PublicWorkout.Domain/obj/Debug/net8.0/PublicWorkout.Domain.dll
+/workspaces/fitness-microservices/PublicWorkout/PublicWorkout.Domain/obj/Debug/net8.0/refint/PublicWorkout.Domain.dll
+/workspaces/fitness-microservices/PublicWorkout/PublicWorkout.Domain/obj/Debug/net8.0/PublicWorkout.Domain.pdb
+/workspaces/fitness-microservices/PublicWorkout/PublicWorkout.Domain/obj/Debug/net8.0/ref/PublicWorkout.Domain.dll

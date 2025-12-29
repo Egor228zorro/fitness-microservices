@@ -1,0 +1,13 @@
+/workspaces/fitness-microservices/UserService/User.Infrastructure/bin/Debug/net8.0/User.Infrastructure.deps.json
+/workspaces/fitness-microservices/UserService/User.Infrastructure/bin/Debug/net8.0/User.Infrastructure.dll
+/workspaces/fitness-microservices/UserService/User.Infrastructure/bin/Debug/net8.0/User.Infrastructure.pdb
+/workspaces/fitness-microservices/UserService/User.Infrastructure/obj/Debug/net8.0/User.Infrastructure.csproj.AssemblyReference.cache
+/workspaces/fitness-microservices/UserService/User.Infrastructure/obj/Debug/net8.0/User.Infrastructure.GeneratedMSBuildEditorConfig.editorconfig
+/workspaces/fitness-microservices/UserService/User.Infrastructure/obj/Debug/net8.0/User.Infrastructure.AssemblyInfoInputs.cache
+/workspaces/fitness-microservices/UserService/User.Infrastructure/obj/Debug/net8.0/User.Infrastructure.AssemblyInfo.cs
+/workspaces/fitness-microservices/UserService/User.Infrastructure/obj/Debug/net8.0/User.Infrastructure.csproj.CoreCompileInputs.cache
+/workspaces/fitness-microservices/UserService/User.Infrastructure/obj/Debug/net8.0/User.Infrastructure.sourcelink.json
+/workspaces/fitness-microservices/UserService/User.Infrastructure/obj/Debug/net8.0/User.Infrastructure.dll
+/workspaces/fitness-microservices/UserService/User.Infrastructure/obj/Debug/net8.0/refint/User.Infrastructure.dll
+/workspaces/fitness-microservices/UserService/User.Infrastructure/obj/Debug/net8.0/User.Infrastructure.pdb
+/workspaces/fitness-microservices/UserService/User.Infrastructure/obj/Debug/net8.0/ref/User.Infrastructure.dll

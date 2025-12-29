@@ -2,8 +2,9 @@ using Pepegov.MicroserviceFramework.Definition;
 using Pepegov.MicroserviceFramework.Definition.Context;
 using PublicWorkout.Application.Services;
 using PublicWorkout.Application.Services.Interfaces;
+using PublicWorkout.Infrastructure; // ← ДОБАВИТЬ эту строку
 
-namespace User.UI.Api.Definitions.Services;
+namespace PublicWorkout.UI.Api.Definitions.Services;
 
 public class PublicWorkoutServiceDefinition : ApplicationDefinition
 {
@@ -15,6 +16,11 @@ public class PublicWorkoutServiceDefinition : ApplicationDefinition
             IPublicWorkoutService,
             PublicWorkoutService
         >();
+        
+        // ▼▼▼ ДОБАВИТЬ ЭТУ СТРОКУ ▼▼▼
+        context.ServiceCollection.AddScoped<IUserIdentityProvider, StubUserIdentityProvider>();
+        // ▲▲▲ ▲▲▲ ▲▲▲ ▲▲▲ ▲▲▲ ▲▲▲ ▲▲▲
+        
         await base.ConfigureServicesAsync(context);
     }
 }

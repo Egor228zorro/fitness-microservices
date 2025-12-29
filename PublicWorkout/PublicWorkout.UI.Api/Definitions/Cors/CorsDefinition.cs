@@ -2,7 +2,7 @@
 using Pepegov.MicroserviceFramework.Definition.Context;
 using PublicWorkout.Application;
 
-namespace User.UI.Api.Definitions.Cors;
+namespace PublicWorkout.UI.Api.Definitions.Cors;
 
 /// <summary>
 /// Cors configurations.

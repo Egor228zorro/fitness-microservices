@@ -11,6 +11,8 @@ test:
 	curl http://localhost:8000/health && echo
 	curl http://localhost:8001/health && echo
 	curl http://localhost:8002/health && echo
+	curl http://localhost:8003/health && echo
+	curl http://localhost:8004/health && echo
 
 db-shell:
 	docker-compose exec training-db psql -U postgres -d training_db

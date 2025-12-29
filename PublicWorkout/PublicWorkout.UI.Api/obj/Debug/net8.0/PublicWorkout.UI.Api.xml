@@ -1,0 +1,101 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>PublicWorkout.UI.Api</name>
+    </assembly>
+    <members>
+        <member name="T:PublicWorkout.UI.Api.AuthData">
+            <summary>
+            Data for authorization.
+            </summary>
+        </member>
+        <member name="F:PublicWorkout.UI.Api.AuthData.AuthenticationSchemes">
+            <summary>
+            Schemes for authorization filter.
+            </summary>
+        </member>
+        <member name="T:PublicWorkout.UI.Api.Definitions.Base.CommonDefinition">
+            <summary>
+            AspNetCore common configuration
+            </summary>
+        </member>
+        <member name="M:PublicWorkout.UI.Api.Definitions.Base.CommonDefinition.ConfigureApplicationAsync(Pepegov.MicroserviceFramework.Definition.Context.IDefinitionApplicationContext)">
+            <inheritdoc />
+        </member>
+        <member name="M:PublicWorkout.UI.Api.Definitions.Base.CommonDefinition.ConfigureServicesAsync(Pepegov.MicroserviceFramework.Definition.Context.IDefinitionServiceContext)">
+            <inheritdoc />
+        </member>
+        <member name="T:PublicWorkout.UI.Api.Definitions.Cors.CorsDefinition">
+            <summary>
+            Cors configurations.
+            </summary>
+        </member>
+        <member name="M:PublicWorkout.UI.Api.Definitions.Cors.CorsDefinition.ConfigureServicesAsync(Pepegov.MicroserviceFramework.Definition.Context.IDefinitionServiceContext)">
+            <inheritdoc />
+        </member>
+        <member name="T:PublicWorkout.UI.Api.Definitions.Database.DatabaseDefinition">
+            <summary>
+            EF database content registration
+            </summary>
+        </member>
+        <member name="M:PublicWorkout.UI.Api.Definitions.Database.DatabaseDefinition.ConfigureServicesAsync(Pepegov.MicroserviceFramework.Definition.Context.IDefinitionServiceContext)">
+            <inheritdoc />
+        </member>
+        <member name="T:PublicWorkout.UI.Api.Definitions.Database.DatabaseSeedingDefinition">
+            <summary>
+            Registration seeding worker.
+            </summary>
+        </member>
+        <member name="M:PublicWorkout.UI.Api.Definitions.Database.DatabaseSeedingDefinition.ConfigureServicesAsync(Pepegov.MicroserviceFramework.Definition.Context.IDefinitionServiceContext)">
+            <inheritdoc />
+        </member>
+        <member name="T:PublicWorkout.UI.Api.Definitions.Database.DatabaseSeedingWorker">
+            <summary>
+            Worker that apply database migrations and seeding data.
+            </summary>
+            <param name="serviceProvider"></param>
+        </member>
+        <member name="M:PublicWorkout.UI.Api.Definitions.Database.DatabaseSeedingWorker.#ctor(System.IServiceProvider)">
+            <summary>
+            Worker that apply database migrations and seeding data.
+            </summary>
+            <param name="serviceProvider"></param>
+        </member>
+        <member name="M:PublicWorkout.UI.Api.Definitions.Database.DatabaseSeedingWorker.StartAsync(System.Threading.CancellationToken)">
+            <inheritdoc />
+        </member>
+        <member name="M:PublicWorkout.UI.Api.Definitions.Database.DatabaseSeedingWorker.StopAsync(System.Threading.CancellationToken)">
+            <inheritdoc />
+        </member>
+        <member name="T:PublicWorkout.UI.Api.Definitions.Mapping.AutoMapperDefinition">
+            <summary>
+            Register auto mapper
+            </summary>
+        </member>
+        <member name="M:PublicWorkout.UI.Api.Definitions.Mapping.AutoMapperDefinition.ConfigureServicesAsync(Pepegov.MicroserviceFramework.Definition.Context.IDefinitionServiceContext)">
+            <inheritdoc />
+        </member>
+        <member name="M:PublicWorkout.UI.Api.Definitions.Mapping.AutoMapperDefinition.ConfigureApplicationAsync(Pepegov.MicroserviceFramework.Definition.Context.IDefinitionApplicationContext)">
+            <inheritdoc />
+        </member>
+        <member name="T:PublicWorkout.UI.Api.Definitions.Swagger.SwaggerDefinition">
+            <summary>
+            Swagger definition for application.
+            </summary>
+        </member>
+        <member name="M:PublicWorkout.UI.Api.Definitions.Swagger.SwaggerDefinition.ConfigureApplicationAsync(Pepegov.MicroserviceFramework.Definition.Context.IDefinitionApplicationContext)">
+            <inheritdoc />
+        </member>
+        <member name="M:PublicWorkout.UI.Api.Definitions.Swagger.SwaggerDefinition.ConfigureServicesAsync(Pepegov.MicroserviceFramework.Definition.Context.IDefinitionServiceContext)">
+            <inheritdoc />
+        </member>
+        <member name="T:PublicWorkout.UI.Api.Definitions.UnitOfWork.UnitOfWorkDefinition">
+            <summary>
+            Registration unit of work db providers.
+            </summary>
+        </member>
+        <member name="M:PublicWorkout.UI.Api.Definitions.UnitOfWork.UnitOfWorkDefinition.ConfigureServicesAsync(Pepegov.MicroserviceFramework.Definition.Context.IDefinitionServiceContext)">
+            <inheritdoc />
+        </member>
+    </members>
+</doc>

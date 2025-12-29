@@ -5,8 +5,6 @@ using Pepegov.MicroserviceFramework.AspNetCore.WebApplicationDefinition;
 using Pepegov.MicroserviceFramework.Definition;
 using Pepegov.MicroserviceFramework.Definition.Context;
 using Pepegov.MicroserviceFramework.Infrastructure.Attributes;
-using PublicWorkout.Application.Dtos;
-using PublicWorkout.UI.Api.Definitions.Swagger;
 using Swashbuckle.AspNetCore.SwaggerUI;
 using User.Application;
 
@@ -130,7 +128,7 @@ public class SwaggerDefinition : ApplicationDefinition
             );
 
             // Добавляем фильтр для регистрации дополнительных схем
-            options.DocumentFilter<AdditionalSchemasDocumentFilter>();
+//             options.DocumentFilter<AdditionalSchemasDocumentFilter>();
 
             // На всякий случай, явно задаем идентификатор схемы
             options.CustomSchemaIds(type => type.Name);

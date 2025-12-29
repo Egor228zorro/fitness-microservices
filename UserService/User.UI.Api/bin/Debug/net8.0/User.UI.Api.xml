@@ -1,0 +1,193 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>User.UI.Api</name>
+    </assembly>
+    <members>
+        <member name="T:User.UI.Api.AuthData">
+            <summary>
+            Data for authorization.
+            </summary>
+        </member>
+        <member name="F:User.UI.Api.AuthData.AuthenticationSchemes">
+            <summary>
+            Schemes for authorization filter.
+            </summary>
+        </member>
+        <member name="T:User.UI.Api.Definitions.Base.CommonDefinition">
+            <summary>
+            AspNetCore common configuration
+            </summary>
+        </member>
+        <member name="M:User.UI.Api.Definitions.Base.CommonDefinition.ConfigureApplicationAsync(Pepegov.MicroserviceFramework.Definition.Context.IDefinitionApplicationContext)">
+            <inheritdoc />
+        </member>
+        <member name="M:User.UI.Api.Definitions.Base.CommonDefinition.ConfigureServicesAsync(Pepegov.MicroserviceFramework.Definition.Context.IDefinitionServiceContext)">
+            <inheritdoc />
+        </member>
+        <member name="T:User.UI.Api.Definitions.Cors.CorsDefinition">
+            <summary>
+            Cors configurations.
+            </summary>
+        </member>
+        <member name="M:User.UI.Api.Definitions.Cors.CorsDefinition.ConfigureServicesAsync(Pepegov.MicroserviceFramework.Definition.Context.IDefinitionServiceContext)">
+            <inheritdoc />
+        </member>
+        <member name="T:User.UI.Api.Definitions.Database.DatabaseDefinition">
+            <summary>
+            EF database content registration
+            </summary>
+        </member>
+        <member name="M:User.UI.Api.Definitions.Database.DatabaseDefinition.ConfigureServicesAsync(Pepegov.MicroserviceFramework.Definition.Context.IDefinitionServiceContext)">
+            <inheritdoc />
+        </member>
+        <member name="T:User.UI.Api.Definitions.Database.DatabaseSeedingDefinition">
+            <summary>
+            Registration seeding worker.
+            </summary>
+        </member>
+        <member name="M:User.UI.Api.Definitions.Database.DatabaseSeedingDefinition.ConfigureServicesAsync(Pepegov.MicroserviceFramework.Definition.Context.IDefinitionServiceContext)">
+            <inheritdoc />
+        </member>
+        <member name="T:User.UI.Api.Definitions.Database.DatabaseSeedingWorker">
+            <summary>
+            Worker that apply database migrations and seeding data
+            </summary>
+            <param name="serviceProvider"></param>
+        </member>
+        <member name="M:User.UI.Api.Definitions.Database.DatabaseSeedingWorker.#ctor(System.IServiceProvider)">
+            <summary>
+            Worker that apply database migrations and seeding data
+            </summary>
+            <param name="serviceProvider"></param>
+        </member>
+        <member name="M:User.UI.Api.Definitions.Database.DatabaseSeedingWorker.StartAsync(System.Threading.CancellationToken)">
+            <inheritdoc />
+        </member>
+        <member name="M:User.UI.Api.Definitions.Database.DatabaseSeedingWorker.StopAsync(System.Threading.CancellationToken)">
+            <inheritdoc />
+        </member>
+        <member name="T:User.UI.Api.Definitions.Identity.AuthorizationDefinition">
+            <summary>
+            Authorization Policy registration.
+            </summary>
+        </member>
+        <member name="M:User.UI.Api.Definitions.Identity.AuthorizationDefinition.ConfigureServicesAsync(Pepegov.MicroserviceFramework.Definition.Context.IDefinitionServiceContext)">
+            <inheritdoc />
+        </member>
+        <member name="M:User.UI.Api.Definitions.Identity.AuthorizationDefinition.ConfigureApplicationAsync(Pepegov.MicroserviceFramework.Definition.Context.IDefinitionApplicationContext)">
+            <inheritdoc />
+        </member>
+        <member name="T:User.UI.Api.Definitions.Mapping.AutoMapperDefinition">
+            <summary>
+            Register auto mapper
+            </summary>
+        </member>
+        <member name="M:User.UI.Api.Definitions.Mapping.AutoMapperDefinition.ConfigureServicesAsync(Pepegov.MicroserviceFramework.Definition.Context.IDefinitionServiceContext)">
+            <inheritdoc />
+        </member>
+        <member name="M:User.UI.Api.Definitions.Mapping.AutoMapperDefinition.ConfigureApplicationAsync(Pepegov.MicroserviceFramework.Definition.Context.IDefinitionApplicationContext)">
+            <inheritdoc />
+        </member>
+        <member name="T:User.UI.Api.Definitions.Mapping.PagedListConvert`2">
+            <inheritdoc />
+        </member>
+        <member name="M:User.UI.Api.Definitions.Mapping.PagedListConvert`2.Convert(Pepegov.UnitOfWork.Entityes.IPagedList{`0},Pepegov.UnitOfWork.Entityes.IPagedList{`1},AutoMapper.ResolutionContext)">
+            <inheritdoc />
+        </member>
+        <member name="T:User.UI.Api.Definitions.Swagger.AdditionalSchemasDocumentFilter">
+            <summary>
+            Фильтр для добавления дополнительных схем в Swagger
+            </summary>
+        </member>
+        <member name="T:User.UI.Api.Definitions.Swagger.SwaggerDefinition">
+            <summary>
+            Swagger definition for application.
+            </summary>
+        </member>
+        <member name="M:User.UI.Api.Definitions.Swagger.SwaggerDefinition.ConfigureApplicationAsync(Pepegov.MicroserviceFramework.Definition.Context.IDefinitionApplicationContext)">
+            <inheritdoc />
+        </member>
+        <member name="M:User.UI.Api.Definitions.Swagger.SwaggerDefinition.ConfigureServicesAsync(Pepegov.MicroserviceFramework.Definition.Context.IDefinitionServiceContext)">
+            <inheritdoc />
+        </member>
+        <member name="T:User.UI.Api.Definitions.UnitOfWork.UnitOfWorkDefinition">
+            <summary>
+            Registration unit of work db providers
+            </summary>
+        </member>
+        <member name="M:User.UI.Api.Definitions.UnitOfWork.UnitOfWorkDefinition.ConfigureServicesAsync(Pepegov.MicroserviceFramework.Definition.Context.IDefinitionServiceContext)">
+            <inheritdoc />
+        </member>
+        <member name="M:User.UI.Api.EndPoints.AuthEndPoints.SendOtpToEmail(Microsoft.AspNetCore.Http.HttpContext,User.Application.Services.Interfaces.IAuthService)">
+            <summary>
+            Sends a one-time password (OTP) to the specified email address for authentication purposes.
+            </summary>
+            <param name="context">The HTTP context of the request.</param>
+            <param name="authService">The authentication service to handle OTP sending.</param>
+            <returns>An HTTP result indicating success or failure.</returns>
+        </member>
+        <member name="M:User.UI.Api.EndPoints.AuthEndPoints.GetJwtToken(Microsoft.AspNetCore.Http.HttpContext,User.Application.Services.Interfaces.IAuthService)">
+            <summary>
+            Verifies the provided OTP code for the given email and returns a JWT token upon successful verification.
+            </summary>
+            <param name="context">The HTTP context of the request.</param>
+            <param name="authService">The authentication service to handle OTP verification and token generation.</param>
+            <returns>An HTTP result with the JWT token or an error message.</returns>
+        </member>
+        <member name="M:User.UI.Api.EndPoints.AuthEndPoints.RefreshAccessToken(Microsoft.AspNetCore.Http.HttpContext,User.Application.Services.Interfaces.IAuthService)">
+            <summary>
+            Refreshes the JWT access token using the provided refresh token.
+            </summary>
+            <param name="context">The HTTP context of the request.</param>
+            <param name="authService">The authentication service to handle token refresh.</param>
+            <returns>An HTTP result with the new JWT token or an error message.</returns>
+        </member>
+        <member name="M:User.UI.Api.EndPoints.AuthEndPoints.RevokeRefreshToken(Microsoft.AspNetCore.Http.HttpContext,User.Application.Services.Interfaces.IAuthService)">
+            <summary>
+            Revokes the provided refresh token to log out the user.
+            </summary>
+            <param name="context">The HTTP context of the request.</param>
+            <param name="authService">The authentication service to handle token revocation.</param>
+            <returns>An HTTP result indicating success or failure.</returns>
+        </member>
+        <member name="M:User.UI.Api.EndPoints.AuthEndPoints.CreateUser(Microsoft.AspNetCore.Http.HttpContext,User.Application.Services.Interfaces.IAuthService)">
+            <summary>
+            Creates a new user account with the provided registration data.
+            </summary>
+            <param name="context">The HTTP context of the request.</param>
+            <param name="authService">The authentication service to handle user creation.</param>
+            <returns>An HTTP result with the created user data or an error message.</returns>
+        </member>
+        <member name="M:User.UI.Api.EndPoints.UserEndPoints.GetCurrentUserProfile(User.Application.Services.Interfaces.IUserService)">
+            <summary>
+            Retrieves the profile information of the currently authenticated user.
+            </summary>
+            <param name="userService">The user service to handle profile retrieval.</param>
+            <returns>An HTTP result with the user's profile data or an error message.</returns>
+        </member>
+        <member name="M:User.UI.Api.EndPoints.UserEndPoints.UpdateUserProfile(User.Application.Dtos.UpdateUserProfileDto,User.Application.Services.Interfaces.IUserService)">
+            <summary>
+            Updates the profile information of the currently authenticated user.
+            </summary>
+            <param name="updateDto">The data transfer object containing updated profile information.</param>
+            <param name="userService">The user service to handle profile updates.</param>
+            <returns>An HTTP result indicating success or failure.</returns>
+        </member>
+        <member name="M:User.UI.Api.EndPoints.UserEndPoints.GetUserSettings(User.Application.Services.Interfaces.IUserService)">
+            <summary>
+            Retrieves the settings of the currently authenticated user.
+            </summary>
+            <param name="userService">The user service to handle settings retrieval.</param>
+            <returns>An HTTP result with the user's settings data or an error message.</returns>
+        </member>
+        <member name="M:User.UI.Api.EndPoints.UserEndPoints.UpdateUserSettings(User.Application.Dtos.UpdateUserSettingsDto,User.Application.Services.Interfaces.IUserService)">
+            <summary>
+            Updates the settings of the currently authenticated user.
+            </summary>
+            <param name="updateDto">The data transfer object containing updated settings information.</param>
+            <param name="userService">The user service to handle settings updates.</param>
+            <returns>An HTTP result indicating success or failure.</returns>
+        </member>
+    </members>
+</doc>

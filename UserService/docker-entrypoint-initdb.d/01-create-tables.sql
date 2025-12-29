@@ -1,0 +1,54 @@
+-- Users DB Tables
+CREATE TABLE IF NOT EXISTS "Users" (
+    "Id" UUID PRIMARY KEY,
+    "UserName" VARCHAR(20) NOT NULL,
+    "Email" VARCHAR(256) NOT NULL UNIQUE,
+    "Role" INTEGER NOT NULL,
+    "CreatedAt" TIMESTAMP,
+    "UpdatedAt" TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS "UserProfiles" (
+    "UserId" UUID PRIMARY KEY REFERENCES "Users"("Id") ON DELETE CASCADE,
+    "Weight" INTEGER NOT NULL,
+    "Height" INTEGER NOT NULL,
+    "Age" INTEGER NOT NULL,
+    "Gender" INTEGER NOT NULL,
+    "ActivityLevel" INTEGER NOT NULL,
+    "FitnessGoal" INTEGER,
+    "CreatedAt" TIMESTAMP,
+    "UpdatedAt" TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS "UserSettings" (
+    "UserId" UUID PRIMARY KEY REFERENCES "Users"("Id") ON DELETE CASCADE,
+    "Theme" INTEGER,
+    "Language" INTEGER,
+    "CreatedAt" TIMESTAMP,
+    "UpdatedAt" TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS "OneTimePasswords" (
+    "Id" UUID PRIMARY KEY,
+    "UserId" UUID NOT NULL REFERENCES "Users"("Id") ON DELETE CASCADE,
+    "OtpCode" VARCHAR(4) NOT NULL,
+    "CreatedAt" TIMESTAMP NOT NULL,
+    "ExpiresAt" TIMESTAMP NOT NULL,
+    "IsUsed" BOOLEAN DEFAULT false
+);
+
+CREATE TABLE IF NOT EXISTS "AccessTokens" (
+    "Id" UUID PRIMARY KEY,
+    "UserId" UUID NOT NULL REFERENCES "Users"("Id") ON DELETE CASCADE,
+    "Token" TEXT NOT NULL,
+    "ExpiresAt" TIMESTAMP NOT NULL,
+    "CreatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS "RefreshTokens" (
+    "Id" UUID PRIMARY KEY,
+    "UserId" UUID NOT NULL REFERENCES "Users"("Id") ON DELETE CASCADE,
+    "Token" TEXT NOT NULL,
+    "ExpiresAt" TIMESTAMP NOT NULL,
+    "CreatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
