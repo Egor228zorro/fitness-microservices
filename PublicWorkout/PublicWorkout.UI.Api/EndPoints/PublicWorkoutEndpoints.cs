@@ -1,3 +1,4 @@
+
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.OpenApi.Models;
@@ -8,7 +9,8 @@ using PublicWorkout.Application.Dtos;
 using PublicWorkout.Application.Services.Interfaces;
 using PublicWorkout.Infrastructure;
 using Swashbuckle.AspNetCore.Annotations;
-
+using System.Net.Http.Json;
+using System.Linq;
 namespace PublicWorkout.UI.Api.EndPoints;
 
 public class PublicWorkoutEndPoints : ApplicationDefinition
@@ -651,7 +653,108 @@ public class PublicWorkoutEndPoints : ApplicationDefinition
                     },
                 },
             });
-
+        // 3.5 TTS Audio - Получение озвучки тренировки
+        group
+            .MapGet("{publicWorkoutId:guid}/audio", GetWorkoutAudio)
+            .WithOpenApi(operation => new OpenApiOperation(operation)
+            {
+                Summary = "Get audio version of workout instructions via TTS",
+                Description = "Generates Text-to-Speech audio for the workout instructions",
+                Parameters = new List<OpenApiParameter>
+                {
+                    new OpenApiParameter
+                    {
+                        Name = "publicWorkoutId",
+                        In = ParameterLocation.Path,
+                        Description = "The ID of the public workout",
+                        Required = true,
+                        Schema = new OpenApiSchema
+                        {
+                            Type = "string",
+                            Format = "uuid",
+                        },
+                    },
+                },
+                Responses = new OpenApiResponses
+                {
+                    {
+                        "200",
+                        new OpenApiResponse
+                        {
+                            Description = "Audio generation job queued successfully",
+                            Content = new Dictionary<string, OpenApiMediaType>
+                            {
+                                {
+                                    "application/json",
+                                    new OpenApiMediaType
+                                    {
+                                        Schema = new OpenApiSchema
+                                        {
+                                            Type = "object",
+                                            Properties = new Dictionary<string, OpenApiSchema>
+                                            {
+                                                ["workout_id"] = new OpenApiSchema { Type = "string", Format = "uuid" },
+                                                ["job_id"] = new OpenApiSchema { Type = "string" },
+                                                ["audio_url"] = new OpenApiSchema { Type = "string", Format = "uri" },
+                                                ["status"] = new OpenApiSchema { Type = "string" },
+                                                ["text_preview"] = new OpenApiSchema { Type = "string" }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "404",
+                        new OpenApiResponse
+                        {
+                            Description = "Workout not found",
+                            Content = new Dictionary<string, OpenApiMediaType>
+                            {
+                                {
+                                    "application/json",
+                                    new OpenApiMediaType
+                                    {
+                                        Schema = new OpenApiSchema
+                                        {
+                                            Reference = new OpenApiReference
+                                            {
+                                                Type = ReferenceType.Schema,
+                                                Id = "ErrorResponse",
+                                            },
+                                        },
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "503",
+                        new OpenApiResponse
+                        {
+                            Description = "TTS service unavailable",
+                            Content = new Dictionary<string, OpenApiMediaType>
+                            {
+                                {
+                                    "application/json",
+                                    new OpenApiMediaType
+                                    {
+                                        Schema = new OpenApiSchema
+                                        {
+                                            Reference = new OpenApiReference
+                                            {
+                                                Type = ReferenceType.Schema,
+                                                Id = "ErrorResponse",
+                                            },
+                                        },
+                                    }
+                                }
+                            }
+                        }
+                    },
+                },
+            });
         group
             .MapGet("{publicWorkoutId:guid}/copies", GetWorkoutCopies)
             .RequireAuthorization()
@@ -1441,7 +1544,7 @@ public class PublicWorkoutEndPoints : ApplicationDefinition
         [FromQuery] int? durationMax,
         [FromQuery] string? sortBy,
         [FromQuery] string? sortOrder,
-        IPublicWorkoutService workoutService,
+        [FromServices] IPublicWorkoutService workoutService,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20
     )
@@ -1770,4 +1873,160 @@ public class PublicWorkoutEndPoints : ApplicationDefinition
                 ? Results.Forbid()
                 : Results.BadRequest(result.Errors);
     }
+    
+    // ============ ВСТАВИТЬ ЗДЕСЬ ============
+    
+    [SwaggerResponse(
+        200,
+        "Audio generation job queued successfully",
+        typeof(TtsAudioResponse)
+    )]
+    [SwaggerResponse(404, "Workout not found", typeof(ErrorResponse))]
+    [SwaggerResponse(503, "TTS service unavailable", typeof(ErrorResponse))]
+    private static async Task<IResult> GetWorkoutAudio(
+        Guid publicWorkoutId,
+        [FromServices] IPublicWorkoutService workoutService,
+        [FromServices] IHttpClientFactory httpClientFactory,
+        [FromServices] ILogger logger
+    )
+    {
+        try
+        {
+            logger.LogInformation("Requesting audio for workout {WorkoutId}", publicWorkoutId);
+            
+            // 1. Получить тренировку
+            var workoutResult = await workoutService.GetWorkoutDetailsAsync(publicWorkoutId);
+            if (!workoutResult.IsSuccess)
+            {
+                return Results.NotFound(workoutResult.Errors);
+            }
+            
+            var workout = workoutResult.Value;
+            
+            // 2. Получить упражнения (нужно добавить метод в IPublicWorkoutService)
+            // TODO: Добавить метод GetExercisesByWorkoutIdAsync в IPublicWorkoutService
+            // var exercises = await workoutService.GetExercisesByWorkoutIdAsync(publicWorkoutId);
+            
+            // 3. Сгенерировать текст для TTS
+            var ttsText = GenerateTtsText(workout, new List<object>()); // Передайте реальные упражнения
+            
+            logger.LogDebug("Generated TTS text length: {Length}", ttsText.Length);
+            
+            // 4. Вызвать TTS сервис через API Gateway
+            var client = httpClientFactory.CreateClient();
+            var ttsResponse = await client.PostAsync(
+                "http://api-gateway:8000/api/tts/generate",
+                new StringContent(
+                    System.Text.Json.JsonSerializer.Serialize(new {
+                        text = ttsText,
+                        voice_id = "en-US-alina",
+                        workout_id = publicWorkoutId.ToString()
+                    }),
+                    System.Text.Encoding.UTF8,
+                    "application/json"
+                )
+            );
+            
+            if (!ttsResponse.IsSuccessStatusCode)
+            {
+                logger.LogError("TTS service error: {StatusCode}", ttsResponse.StatusCode);
+                return Results.Problem(
+                    detail: "TTS service unavailable",
+                    statusCode: 503);
+            }
+            
+            var ttsResult = await ttsResponse.Content.ReadFromJsonAsync<TtsAudioResponse>();
+            
+            return Results.Ok(new {
+                workout_id = publicWorkoutId,
+                job_id = ttsResult?.job_id,
+                audio_url = ttsResult?.audio_url,
+                status = "queued",
+                text_preview = ttsText.Length > 100 ? ttsText.Substring(0, 100) + "..." : ttsText
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error generating audio for workout {WorkoutId}", publicWorkoutId);
+            return Results.Problem(
+                detail: "Internal server error",
+                statusCode: 500);
+        }
+    }
+    
+    private static string GenerateTtsText(PublicWorkoutDetailDto workout, IEnumerable<object> exercises)
+    {
+        try
+        {
+            var text = $"Welcome to workout: {workout.Name}. ";
+            text += $"Workout type: {workout.Type}. ";
+            
+            if (workout.Exercises != null && workout.Exercises.Any())
+            {
+                text += $"This workout consists of {workout.Exercises.Count} exercises. ";
+                text += "Please follow along carefully. ";
+                
+                var index = 1;
+                foreach (var exercise in workout.Exercises.OrderBy(e => e.OrderIndex))
+                {
+                    text += $"Exercise number {index}: {exercise.Name}. ";
+                    
+                    if (!string.IsNullOrEmpty(exercise.Description))
+                    {
+                        var cleanDescription = exercise.Description
+                            .Replace("\n", ". ")
+                            .Replace("\r", "")
+                            .Trim();
+                        text += $"{cleanDescription}. ";
+                    }
+                    
+                    if (exercise.DurationSeconds > 0)
+                    {
+                        var minutes = exercise.DurationSeconds / 60;
+                        var seconds = exercise.DurationSeconds % 60;
+                        
+                        if (minutes > 0)
+                            text += $"Duration: {minutes} minute{(minutes > 1 ? "s" : "")} ";
+                        if (seconds > 0)
+                            text += $"{seconds} second{(seconds > 1 ? "s" : "")}. ";
+                        else if (minutes > 0)
+                            text += ". ";
+                    }
+                    
+                    // Добавляем небольшую паузу между упражнениями
+                    if (index < workout.Exercises.Count)
+                        text += "Next exercise. ";
+                    
+                    index++;
+                }
+            }
+            else
+            {
+                text += "This workout has planned exercises. Please follow your instructor's guidance. ";
+            }
+            
+            text += "Workout completed. Excellent work! Remember to hydrate and stretch. Great job!";
+            
+            // Ограничиваем длину для TTS API
+            var maxLength = 5000;
+            if (text.Length > maxLength)
+            {
+                text = text.Substring(0, maxLength) + "... [text truncated]";
+            }
+            
+            return text;
+        }
+        catch (Exception)
+        {
+            // Fallback текст
+            return $"Welcome to workout: {workout.Name}. This workout has {workout.Exercises?.Count ?? 0} exercises. Complete all exercises with proper form. Workout finished. Good job!";
+        }
+    }
+    
+    private class TtsAudioResponse
+    {
+        public string? job_id { get; set; }
+        public string? audio_url { get; set; }
+    }
+    
 }

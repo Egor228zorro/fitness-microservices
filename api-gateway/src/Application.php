@@ -2,6 +2,8 @@
 
 namespace Rebuilder\ApiGateway;
 
+use Firebase\JWT\JWT;
+use Firebase\JWT\Key;
 use GuzzleHttp\Client;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseInterface as Response;
@@ -18,14 +20,31 @@ class Application
     /** @var Client */
     private Client $httpClient;
 
+    /** @var string */
+    private string $jwtSecret;
+
+    /** @var string */
+    private string $jwtAlgorithm;
+
     public function __construct()
     {
         $this->app = AppFactory::create();
         $this->httpClient = new Client();
 
-        // === ВАЖНО: Добавляем CORS middleware ПЕРВЫМ ===
+        // Получаем настройки ТОЛЬКО из переменных окружения
+        $this->jwtSecret = getenv('JWT_SECRET');
+        $this->jwtAlgorithm = getenv('JWT_ALGORITHM');
+
+        // Валидация - обе переменные должны быть установлены
+        if (empty($this->jwtSecret)) {
+            throw new \RuntimeException('JWT_SECRET environment variable is not set');
+        }
+        if (empty($this->jwtAlgorithm)) {
+            throw new \RuntimeException('JWT_ALGORITHM environment variable is not set');
+        }
+
+        // === CORS middleware ПЕРВЫМ ===
         $this->app->add(function (Request $request, $handler): Response {
-            // Обработка preflight OPTIONS запросов
             if ($request->getMethod() === 'OPTIONS') {
                 $response = new \Slim\Psr7\Response();
                 return $response
@@ -48,51 +67,79 @@ class Application
     }
 
     /**
-     * Настройка middleware (аутентификация)
+     * Настройка middleware (настоящая JWT аутентификация)
      */
     private function setupMiddleware(): void
     {
-        // Middleware для проверки токенов
         $this->app->add(function (Request $request, $handler): Response {
             $path = $request->getUri()->getPath();
             $method = $request->getMethod();
 
-            // === ЛОГИРОВАНИЕ ДЛЯ ОТЛАДКИ ===
-            error_log("=== AUTH MIDDLEWARE START ===");
+            // === ДЛЯ ОТЛАДКИ ===
+            error_log("=== API GATEWAY AUTH ===");
             error_log("Path: {$path}");
             error_log("Method: {$method}");
-            error_log("Full URI: " . $request->getUri());
+            error_log("JWT Secret configured: " . (strlen($this->jwtSecret) > 0 ? 'YES' : 'NO'));
+            error_log("JWT Algorithm: {$this->jwtAlgorithm}");
 
             // Публичные маршруты (без аутентификации)
             $publicRoutes = [
                 '/health',
                 '/',
                 '/auth/test-login',
+                '/auth/test-token',
                 '/tts/voices',
-                '/tts/validate-voice'
+                '/tts/validate-voice',
+                // User Service публичные эндпоинты
+                '/api/user/auth/request-otp',
+                '/api/user/auth/verify-otp',
+                '/api/user/auth/register',
+                '/api/user/auth/login',
+                // Public Workout Service - публичные тренировки
+                '/public/workouts'
             ];
 
             // Проверяем, является ли маршрут публичным
             $isPublicRoute = false;
+            
+            // 1. Точные совпадения
             foreach ($publicRoutes as $publicPath) {
-                // Точное совпадение или начало пути
-                if ($path === $publicPath || strpos($path, $publicPath . '/') === 0) {
+                if ($path === $publicPath) {
                     $isPublicRoute = true;
-                    error_log("Route {$path} is PUBLIC (matches {$publicPath})");
+                    error_log("Route {$path} is PUBLIC (exact match: {$publicPath})");
                     break;
+                }
+            }
+            
+            // 2. Маршруты, начинающиеся с публичных префиксов
+            if (!$isPublicRoute) {
+                $publicPrefixes = [
+                    '/public/workouts/',
+                    '/api/user/auth/',
+                    '/auth/',
+                    '/tts/voices',
+                    '/tts/validate-voice'
+                ];
+                
+                foreach ($publicPrefixes as $prefix) {
+                    if (strpos($path, $prefix) === 0) {
+                        $isPublicRoute = true;
+                        error_log("Route {$path} is PUBLIC (prefix: {$prefix})");
+                        break;
+                    }
                 }
             }
 
             // Для публичных маршрутов пропускаем аутентификацию
             if ($isPublicRoute) {
                 error_log("Skipping auth for public route");
-                error_log("=== AUTH MIDDLEWARE END (PUBLIC) ===");
+                error_log("=== AUTH END (PUBLIC) ===");
                 return $handler->handle($request);
             }
 
-            error_log("Route {$path} is PRIVATE, checking auth...");
+            error_log("Route {$path} is PRIVATE, checking JWT...");
 
-            // Для приватных маршрутов проверяем наличие токена
+            // Для приватных маршрутов проверяем JWT токен
             $authHeader = $request->getHeaderLine('Authorization');
             error_log("Auth header: " . ($authHeader ? $authHeader : 'MISSING'));
 
@@ -106,69 +153,93 @@ class Application
                 );
 
                 $response = new \Slim\Psr7\Response();
-                try {
-                    $json = json_encode($error, JSON_THROW_ON_ERROR);
-                    $response->getBody()->write($json);
-                } catch (\JsonException $e) {
-                    // Fallback на простой JSON
-                    $response->getBody()->write('{"error": "JSON encoding failed"}');
-                }
+                $json = json_encode($error, JSON_THROW_ON_ERROR);
+                $response->getBody()->write($json);
 
-                error_log("=== AUTH MIDDLEWARE END (401 NO TOKEN) ===");
-
-                /** @var array{status?: int} $error */
-                $statusCode = $error['status'] ?? 401;
-
+                error_log("=== AUTH END (401 NO TOKEN) ===");
                 return $response
-                    ->withStatus($statusCode)
+                    ->withStatus(401)
                     ->withHeader('Content-Type', 'application/json');
             }
 
             $token = $matches[1];
             error_log("Token extracted: " . substr($token, 0, 20) . "...");
 
-            // БАЗОВАЯ ПРОВЕРКА ТОКЕНА
-            // Простая проверка формата токена
-            if (strlen($token) < 10) {
-                error_log("ERROR: Token too short: " . strlen($token));
+            try {
+                // === НАСТОЯЩАЯ JWT ВАЛИДАЦИЯ ===
+                error_log("Validating JWT token...");
+                error_log("Using JWT Secret from env: " . substr($this->jwtSecret, 0, 10) . "...");
+                
+                // Декодируем токен без проверки подписи сначала, чтобы посмотреть алгоритм
+                $tks = explode('.', $token);
+                if (count($tks) !== 3) {
+                    throw new \Exception('Invalid token format');
+                }
+
+                // Получаем заголовок
+                $headerRaw = JWT::urlsafeB64Decode($tks[0]);
+                $header = json_decode($headerRaw, true);
+                error_log("JWT Header: " . json_encode($header));
+                
+                // Используем алгоритм из заголовка токена или из переменной окружения
+                $algorithm = $header['alg'] ?? $this->jwtAlgorithm;
+                error_log("JWT Algorithm from header: " . ($header['alg'] ?? 'NOT SET'));
+                error_log("Using algorithm: {$algorithm}");
+
+                // Проверяем токен с секретным ключом
+                $decoded = JWT::decode($token, new Key($this->jwtSecret, $algorithm));
+                error_log("JWT Decoded successfully");
+
+                // Извлекаем данные пользователя
+                $userId = $decoded->sub ?? null;
+                $email = $decoded->email ?? null;
+                $role = $decoded->role ?? $decoded->{'http://schemas.microsoft.com/ws/2008/06/identity/claims/role'} ?? 'Member';
+                $name = $decoded->name ?? $decoded->{'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name'} ?? 'Unknown';
+                
+                error_log("User ID: {$userId}");
+                error_log("Email: {$email}");
+                error_log("Role: {$role}");
+                error_log("Name: {$name}");
+
+                // Проверяем срок действия
+                $currentTime = time();
+                if (isset($decoded->exp) && $decoded->exp < $currentTime) {
+                    throw new \Exception('Token expired');
+                }
+
+                // Добавляем данные пользователя в запрос
+                $userData = [
+                    'user_id' => $userId,
+                    'email' => $email,
+                    'role' => $role,
+                    'name' => $name,
+                    'token' => $token,
+                    'jwt_payload' => (array)$decoded
+                ];
+                
+                $request = $request->withAttribute('user', $userData);
+                error_log("Auth SUCCESS for user: {$email} ({$userId})");
+
+            } catch (\Exception $e) {
+                error_log("JWT VALIDATION FAILED: " . $e->getMessage());
 
                 $error = EnsiErrorHandler::unauthorized(
-                    'Invalid token format',
+                    'Invalid or expired token',
                     $path,
-                    ['token_length' => strlen($token)]
+                    ['error' => $e->getMessage()]
                 );
 
                 $response = new \Slim\Psr7\Response();
+                $json = json_encode($error, JSON_THROW_ON_ERROR);
+                $response->getBody()->write($json);
 
-                try {
-                    $json = json_encode($error, JSON_THROW_ON_ERROR);
-                    // Здесь PhpStan знает что $json - строка
-                    $response->getBody()->write($json);
-                } catch (\JsonException $e) {
-                    // Обработка ошибки
-                    $response->getBody()->write('{"error": "JSON encoding failed"}');
-                }
-
-                error_log("=== AUTH MIDDLEWARE END (401 SHORT TOKEN) ===");
-                /** @var array{status?: int} $error */
-                $statusCode = $error['status'] ?? 401;
+                error_log("=== AUTH END (401 INVALID TOKEN) ===");
                 return $response
-                    ->withStatus($statusCode)
+                    ->withStatus(401)
                     ->withHeader('Content-Type', 'application/json');
             }
 
-            // Добавляем заглушку пользователя для внутренних сервисов
-            /** @var array{user_id: string, role: string, token: string} $userData */
-            $userData = [
-                'user_id' => '550e8400-e29b-41d4-a716-446655440000',
-                'role' => 'user',
-                'token' => $token
-            ];
-            $request = $request->withAttribute('user', $userData);
-
-            error_log("Auth SUCCESS for user: 550e8400-e29b-41d4-a716-446655440000");
-            error_log("=== AUTH MIDDLEWARE END (SUCCESS) ===");
-
+            error_log("=== AUTH END (SUCCESS) ===");
             return $handler->handle($request);
         });
     }
@@ -179,44 +250,67 @@ class Application
 
         // Health check
         $this->app->get('/health', function (Request $request, Response $response): Response {
-            try {
-                $json = json_encode([
-                    'status' => 'OK',
-                    'service' => 'api-gateway',
-                    'timestamp' => date('Y-m-d H:i:s'),
-                    'authentication' => 'basic (token required for private routes)'
-                ], JSON_THROW_ON_ERROR);
-                /** @phpstan-ignore notIdentical.alwaysTrue */
-                if ($json !== false) {
-                    $response->getBody()->write($json);
-                }
-            } catch (\JsonException $e) {
-                // Fallback на простой JSON
-                $response->getBody()->write('{"error": "JSON encoding failed"}');
-            }
-
+            $json = json_encode([
+                'status' => 'OK',
+                'service' => 'api-gateway',
+                'timestamp' => date('Y-m-d H:i:s'),
+                'jwt_auth' => 'enabled',
+                'user_service' => 'integrated',
+                'public_workout_service' => 'available',
+                'environment_config' => 'from_env_variables'
+            ], JSON_THROW_ON_ERROR);
+            $response->getBody()->write($json);
             return $response->withHeader('Content-Type', 'application/json');
         });
 
-        // Тестовый вход (для разработки без C# users-service)
-        $this->app->post('/auth/test-login', function (Request $request, Response $response): Response {
+        // Тестовый JWT токен (для разработки) - использует тот же секрет из env
+        $this->app->post('/auth/test-token', function (Request $request, Response $response): Response {
+            // Генерируем тестовый JWT токен с тем же секретом из env
+            $payload = [
+                'sub' => 'test-user-id-123',
+                'email' => 'test@example.com',
+                'name' => 'Test User',
+                'role' => 'Member',
+                'iat' => time(),
+                'exp' => time() + 3600,
+                'iss' => 'ReBuilder'
+            ];
+            
+            $token = JWT::encode($payload, $this->jwtSecret, $this->jwtAlgorithm);
+            
             $json = json_encode([
                 'success' => true,
-                'message' => 'Use any token for testing. Real auth will be implemented with C# users-service.',
-                'test_token' => 'test_jwt_token_for_development_' . uniqid(),
-                'note' => 'Add Authorization: Bearer {token} header for private routes'
+                'message' => 'Test JWT token for development',
+                'accessToken' => $token,
+                'expiresIn' => 3600,
+                'tokenType' => 'Bearer',
+                'note' => 'Use: Authorization: Bearer ' . $token,
+                'algorithm' => $this->jwtAlgorithm
             ], JSON_THROW_ON_ERROR);
-            /** @phpstan-ignore notIdentical.alwaysTrue */
-            if ($json !== false) {
-                $response->getBody()->write($json);
-            }
+            $response->getBody()->write($json);
             return $response->withHeader('Content-Type', 'application/json');
+        });
+
+        // ========== USER SERVICE ==========
+        // ИСПРАВЛЕНО: Используем /api/user (singular) вместо /api/users
+        $this->app->any('/api/user[/{params:.*}]', function (Request $request, Response $response, array $args): Response {
+            $params = $args['params'] ?? '';
+            $path = $params ? "/{$params}" : '';
+            error_log("Proxying to User Service: /api/user{$path}");
+            return $this->proxyToService($request, $response, "http://localhost:8004{$path}");
+        });
+
+        // ========== PUBLIC WORKOUT SERVICE ==========
+        $this->app->any('/public/workouts[/{params:.*}]', function (Request $request, Response $response, array $args): Response {
+            $params = $args['params'] ?? '';
+            $path = $params ? "/{$params}" : '';
+            error_log("Proxying to Public Workout Service: /public/workouts{$path}");
+            return $this->proxyToService($request, $response, "http://public-workout-service:80/public/workouts{$path}");
         });
 
         // ========== ТРЕНИРОВКИ (training-service) ==========
-        // ВАЖНО: Специфичные маршруты должны быть ВЫШЕ общих
-
-        // 1. Генерация озвучки для тренировок (специфичный маршрут)
+        
+        // 1. Генерация озвучки для тренировок
         $this->app->any('/private/workouts/{workoutId}/tts[/{params:.*}]', function (Request $request, Response $response, array $args): Response {
             $workoutId = $args['workoutId'] ?? '';
             $params = $args['params'] ?? '';
@@ -224,7 +318,7 @@ class Application
             return $this->proxyToService($request, $response, "http://training-service:80/private/workouts/{$workoutId}/tts{$path}");
         });
 
-        // 2. Приватные тренировки (общий маршрут - должен быть ПОСЛЕ специфичных)
+        // 2. Приватные тренировки
         $this->app->any('/private/workouts[/{params:.*}]', function (Request $request, Response $response, array $args): Response {
             $params = $args['params'] ?? '';
             $path = $params ? "/{$params}" : '';
@@ -246,10 +340,19 @@ class Application
         });
 
         // ========== TTS СЕРВИС ==========
-        $this->app->any('/tts[/{params:.*}]', function (Request $request, Response $response, array $args): Response {
+        $this->app->any('/api/tts[/{params:.*}]', function (Request $request, Response $response, array $args): Response {
             $params = $args['params'] ?? '';
             $path = $params ? "/{$params}" : '';
+            error_log("Proxying to TTS Service: /api/tts{$path}");
             return $this->proxyToService($request, $response, "http://text-to-speech-service:80{$path}");
+        });
+
+        // ========== TRAINING SERVICE (публичный API) ==========
+        $this->app->any('/api/training[/{params:.*}]', function (Request $request, Response $response, array $args): Response {
+            $params = $args['params'] ?? '';
+            $path = $params ? "/{$params}" : '';
+            error_log("Proxying to Training Service: /api/training{$path}");
+            return $this->proxyToService($request, $response, "http://training-service:80{$path}");
         });
 
         // Корневой маршрут
@@ -258,24 +361,24 @@ class Application
                 'message' => 'ReBuilder API Gateway',
                 'version' => '1.0',
                 'timestamp' => date('Y-m-d H:i:s'),
-                'authentication' => 'Basic token validation (Bearer token required for private routes)',
+                'authentication' => 'JWT Bearer token',
+                'configuration' => 'from_environment_variables',
                 'active_endpoints' => [
                     '/health' => 'Health check (public)',
-                    '/auth/test-login' => 'Get test token (public)',
-                    '/private/workouts/*' => 'Private workouts management (requires token)',
-                    '/private/exercises/*' => 'Private exercises management (requires token)',
-                    '/tts/*' => 'Text-to-speech service (requires token for /generate)'
-                ],
-                'notes' => 'Full authentication with C# users-service will be implemented later'
+                    '/auth/test-token' => 'Get test JWT token (public)',
+                    '/api/user/*' => 'User Service (public auth, private user data)',
+                    '/public/workouts/*' => 'Public workouts (public)',
+                    '/api/training/*' => 'Training service (public)',
+                    '/api/tts/*' => 'Text-to-speech service',
+                    '/private/workouts/*' => 'Private workouts (requires JWT)',
+                    '/private/exercises/*' => 'Private exercises (requires JWT)'
+                ]
             ], JSON_THROW_ON_ERROR);
-            /** @phpstan-ignore notIdentical.alwaysTrue */
-            if ($json !== false) {
-                $response->getBody()->write($json);
-            }
+            $response->getBody()->write($json);
             return $response->withHeader('Content-Type', 'application/json');
         });
 
-        // Обработка OPTIONS для CORS (дублируем для ясности)
+        // Обработка OPTIONS для CORS
         $this->app->options('/{routes:.+}', function (Request $request, Response $response): Response {
             return $response
                 ->withHeader('Access-Control-Allow-Origin', '*')
@@ -288,89 +391,69 @@ class Application
     private function proxyToService(Request $request, Response $response, string $serviceUrl): Response
     {
         try {
-            // === ОТЛАДКА ===
             error_log("=== API GATEWAY PROXY ===");
-            error_log("Method: " . $request->getMethod());
-            error_log("Path: " . $request->getUri()->getPath());
-            error_log("Target URL: " . $serviceUrl);
+            error_log("Target: " . $serviceUrl);
 
-            /** @var array{user_id: string, role: string, token: string}|null $user */
             $user = $request->getAttribute('user', null);
-            error_log("User attribute: " . json_encode($user));
+            error_log("User: " . ($user ? json_encode($user) : 'No user (public route)'));
 
             $method = $request->getMethod();
             $query = $request->getUri()->getQuery();
+            $targetUrl = $serviceUrl . ($query ? '?' . $query : '');
 
-            // Формируем полный URL
-            $targetUrl = $serviceUrl;
-            if ($query) {
-                $targetUrl .= '?' . $query;
-            }
-
-            // Подготавливаем опции для Guzzle
             $options = [
                 'headers' => $request->getHeaders(),
                 'timeout' => 30
             ];
 
-            // Убираем заголовки, которые могут мешать
             unset($options['headers']['Host']);
             unset($options['headers']['Content-Length']);
 
             // Передаем пользовательские данные сервисам
-            /** @phpstan-ignore function.alreadyNarrowedType */
-            if (is_array($user) && array_key_exists('user_id', $user) /** @phpstan-ignore function.alreadyNarrowedType */ && array_key_exists('role', $user)) {
+            if ($user && isset($user['user_id'])) {
                 $options['headers']['X-User-Id'] = [$user['user_id']];
-                $options['headers']['X-User-Role'] = [$user['role']];
-                error_log("Adding user headers: " . json_encode(['X-User-Id' => $user['user_id'], 'X-User-Role' => $user['role']]));
+                $options['headers']['X-User-Role'] = [$user['role'] ?? 'Member'];
+                $options['headers']['X-User-Email'] = [$user['email'] ?? ''];
+                error_log("Adding user headers for: " . $user['user_id']);
             }
 
-            // ========== ИСПРАВЛЕННЫЙ КОД: Правильная передача JSON тела ==========
+            // Передаем тело запроса
             $bodyContent = $request->getBody()->getContents();
-            $request->getBody()->rewind(); // Важно: перематываем поток
+            $request->getBody()->rewind();
 
             if (in_array($method, ['POST', 'PUT', 'PATCH', 'DELETE']) && !empty($bodyContent)) {
                 $contentType = $request->getHeaderLine('Content-Type');
-                error_log("Content-Type: " . $contentType);
-                error_log("Body (raw): " . substr($bodyContent, 0, 200));
+                error_log("Body type: " . $contentType);
                 
                 if (strstr($contentType, 'application/json')) {
-                    // Пытаемся распарсить JSON для проверки валидности
                     $jsonData = json_decode($bodyContent, true);
                     if (json_last_error() === JSON_ERROR_NONE) {
-                        // ✅ ПРАВИЛЬНЫЙ СПОСОБ: Используем 'json' опцию Guzzle
                         $options['json'] = $jsonData;
-                        error_log("Body parsed as JSON successfully, using 'json' option");
+                        error_log("Sending as JSON");
                     } else {
-                        // Если не удалось распарсить, передаем как строку
                         $options['body'] = $bodyContent;
-                        if (empty($options['headers']['Content-Type'])) {
-                            $options['headers']['Content-Type'] = ['application/json'];
-                        }
-                        error_log("Body is not valid JSON, passing as string. JSON error: " . json_last_error_msg());
+                        $options['headers']['Content-Type'] = ['application/json'];
+                        error_log("Sending as raw JSON string");
                     }
                 } else {
-                    // Для других типов контента передаем как есть
                     $options['body'] = $bodyContent;
                 }
             }
 
-            // Проксируем запрос
-            error_log("Proxying to: {$method} {$targetUrl}");
+            error_log("Proxying: {$method} {$targetUrl}");
             $serviceResponse = $this->httpClient->request($method, $targetUrl, $options);
 
-            // Возвращаем ответ от сервиса
             $responseBody = $serviceResponse->getBody()->getContents();
             $response->getBody()->write($responseBody);
 
-            error_log("Proxy SUCCESS: Status " . $serviceResponse->getStatusCode());
+            error_log("Proxy SUCCESS: " . $serviceResponse->getStatusCode());
             return $response
                 ->withStatus($serviceResponse->getStatusCode())
                 ->withHeader('Content-Type', 'application/json');
 
         } catch (\GuzzleHttp\Exception\RequestException $e) {
-            error_log("API Gateway Error: " . $e->getMessage());
-            error_log("Service URL: " . $serviceUrl);
+            error_log("Proxy ERROR: " . $e->getMessage());
+            error_log("Service: " . $serviceUrl);
 
             if ($e->hasResponse()) {
                 $errorResponse = $e->getResponse();
@@ -388,10 +471,8 @@ class Application
                 'service' => $serviceUrl,
                 'timestamp' => date('Y-m-d H:i:s')
             ], JSON_THROW_ON_ERROR);
-            /** @phpstan-ignore notIdentical.alwaysTrue */
-            if ($json !== false) {
-                $response->getBody()->write($json);
-            }
+            $response->getBody()->write($json);
+            
             return $response
                 ->withStatus(503)
                 ->withHeader('Content-Type', 'application/json');

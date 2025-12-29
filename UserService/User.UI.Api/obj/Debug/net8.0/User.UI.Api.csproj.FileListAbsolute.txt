@@ -151,3 +151,4 @@
 /workspaces/fitness-microservices/UserService/User.UI.Api/obj/Debug/net8.0/User.UI.Api.pdb
 /workspaces/fitness-microservices/UserService/User.UI.Api/obj/Debug/net8.0/User.UI.Api.genruntimeconfig.cache
 /workspaces/fitness-microservices/UserService/User.UI.Api/obj/Debug/net8.0/ref/User.UI.Api.dll
+/workspaces/fitness-microservices/UserService/User.UI.Api/bin/Debug/net8.0/appsettings.json

@@ -1,6 +1,6 @@
 FROM composer:2.6 AS composer
 
-FROM php:8.1-apache
+FROM php:8.2-apache
 
 # Установка зависимостей системы
 RUN apt-get update && apt-get install -y \
